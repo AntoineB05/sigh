@@ -16,6 +16,21 @@ fun array_add (a: Int[]): Int
     var i: Int = 1
     var result: Int = a[0]
 
+    switch(2){
+            case 1{
+                print("i=1")
+            }
+
+            case 2{
+                print("i=2")
+            }
+            default{
+                print("default")
+            }
+
+        }
+        var t : Bool = i is Int
+
     while i < a.length {
         result = add(result, a[i])
         i = i + 1
@@ -47,6 +62,23 @@ fun validate5 (value: Int)
 struct Pair {
     var a: Int
     var b: Int
+}
+var pair : Pair = $Pair (0 ,1)
+var isPair : Bool = pair is Pair
+
+switch(pair) {
+    case (0,0){
+        // code block
+        print("a is 0 and b is 0")
+    }
+    case (_,1){
+        // code block
+        print("b is 1")
+    }
+    default{
+        // code block
+        print("something else")
+    }
 }
 
 var type: Type = Pair

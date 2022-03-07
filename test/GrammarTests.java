@@ -3,6 +3,8 @@ import norswap.sigh.SighGrammar;
 import norswap.sigh.ast.*;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+
 import static java.util.Arrays.asList;
 import static norswap.sigh.ast.BinaryOperator.*;
 
@@ -135,6 +137,34 @@ public class GrammarTests extends AutumnTestFixture {
         successExpect("while 1 < 2 { return } ", new WhileNode(null,
             new BinaryExpressionNode(null, intlit(1), LOWER, intlit(2)),
             new BlockNode(null, asList(new ReturnNode(null, null)))));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    @Test public void testTypeCheck() {
+        rule = grammar.expression;
+
+        successExpect("3 is Int",new BinaryExpressionTypeCheckNode(null,intlit(3),IS,new SimpleTypeNode(null,"Int")));
+
+        successExpect("\"String\" is String",new BinaryExpressionTypeCheckNode(null,new StringLiteralNode(null,"String"),IS,new SimpleTypeNode(null,"String")));
+
+        successExpect("3.0 is Bool",new BinaryExpressionTypeCheckNode(null,new FloatLiteralNode(null,3.0),IS,new SimpleTypeNode(null,"Bool")));
+
+        successExpect("true is Float", new BinaryExpressionTypeCheckNode(null,new ReferenceNode(null,"true"),IS,new SimpleTypeNode(null,"Float")));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    @Test public void testSwitches() {
+        rule = grammar.statement;
+
+        successExpect("switch(1) { case 2 { return 2}; default { return 0}}",new SwitchNode(null,intlit(1),
+            asList(new CaseNode(null,intlit(2),new BlockNode(null,asList(new ReturnNode(null,intlit(2))))),
+                new DefaultNode(null,new BlockNode(null,asList(new ReturnNode(null,intlit(0))))))));
+
+        successExpect("switch (p) { case (1,2) {} case(_,4) {}}",new SwitchNode(null,new ReferenceNode(null,"p"),
+            asList(new CaseNode(null,new StructMatchingNode(null,asList(intlit(1),intlit(2))),new BlockNode(null,asList())),
+                new CaseNode(null,new StructMatchingNode(null,asList(new AnyLiteralNode(null),intlit(4))),new BlockNode(null,asList())))));
     }
 
     // ---------------------------------------------------------------------------------------------
