@@ -121,7 +121,10 @@ public final class SemanticAnalysis
         walker.register(FunCallNode.class,              PRE_VISIT,  analysis::funCall);
         walker.register(UnaryExpressionNode.class,      PRE_VISIT,  analysis::unaryExpression);
         walker.register(BinaryExpressionNode.class,     PRE_VISIT,  analysis::binaryExpression);
+        walker.register(BinaryExpressionTypeCheckNode.class,     PRE_VISIT,  analysis::binaryExpressionTypeCheck);
         walker.register(AssignmentNode.class,           PRE_VISIT,  analysis::assignment);
+        walker.register(StructMatchingNode.class,       PRE_VISIT,  analysis::structMatchingNode);
+        walker.register(AnyLiteralNode.class,       PRE_VISIT,  analysis::anyLiteral);
 
         // types
         walker.register(SimpleTypeNode.class,           PRE_VISIT,  analysis::simpleType);
@@ -145,7 +148,9 @@ public final class SemanticAnalysis
         walker.register(IfNode.class,                   PRE_VISIT,  analysis::ifStmt);
         walker.register(WhileNode.class,                PRE_VISIT,  analysis::whileStmt);
         walker.register(ReturnNode.class,               PRE_VISIT,  analysis::returnStmt);
-
+        walker.register(SwitchNode.class,               PRE_VISIT,  analysis::switchStmt);
+        walker.register(CaseNode.class,               PRE_VISIT,  node -> {});
+        walker.register(DefaultNode.class,               PRE_VISIT,  node -> {});
         walker.registerFallback(POST_VISIT, node -> {});
 
         return walker;
@@ -170,6 +175,12 @@ public final class SemanticAnalysis
 
     private void stringLiteral (StringLiteralNode node) {
         R.set(node, "type", StringType.INSTANCE);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private void anyLiteral (AnyLiteralNode node) {
+        R.set(node, "type", AnyType.INSTANCE);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -480,6 +491,11 @@ public final class SemanticAnalysis
         });
     }
 
+    private void binaryExpressionTypeCheck (BinaryExpressionTypeCheckNode node)
+    {
+        R.set(node,"type",BoolType.INSTANCE);
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     private boolean isArithmetic (BinaryOperator op) {
@@ -584,6 +600,10 @@ public final class SemanticAnalysis
             else
                 r.errorFor("Trying to assign to an non-lvalue expression.", node.left);
         });
+    }
+
+    private void structMatchingNode(StructMatchingNode node){
+        R.set(node,"type",StructMatchingType.INSTANCE);
     }
 
     // endregion
@@ -881,6 +901,75 @@ public final class SemanticAnalysis
                 }
             });
     }
+
+    private void switchStmt (SwitchNode node)
+    {
+
+         R.rule()
+        .using(node.expression, "type")
+        .by(r -> {
+            int nbStatements = node.caseList.size();
+            int nbDebault = 0 ;
+            Type typeSwitch = r.get(0);
+            // Check if all statement of the switch are case or default statement
+            for(int i=0; i<nbStatements; i++){
+                StatementNode statementNode = node.caseList.get(i);
+                if(statementNode instanceof DefaultNode) {
+                    nbDebault++;
+                } else if (statementNode instanceof CaseNode){
+                    // Add rule to check if all expression type of cases match with switch expression type
+                    R.rule()
+                    .using(((CaseNode) statementNode).expression,"type")
+                    .by(rr -> {
+                        Type type = rr.get(0);
+                        if(type == StructMatchingType.INSTANCE){
+                            if(typeSwitch instanceof StructType){
+                                StructType typeSwitchStruct = (StructType) typeSwitch;
+                                StructMatchingNode structMatchingNode = (StructMatchingNode) ((CaseNode) statementNode).expression;
+                                int nbFields = structMatchingNode.fields.size();
+                                if(typeSwitchStruct.node.fields.size() != nbFields) {
+                                    rr.error(format("Number of struct fields in case doesn't match with the number of fields of the switch structure," +
+                                            " expected %d but got %d",typeSwitchStruct.node.fields.size(),nbFields),statementNode);
+                                }else {
+                                    for (int j=0; j<nbFields; j++){
+                                        int finalJ = j;
+                                        R.rule()
+                                        .using(new Attribute(typeSwitchStruct.node.fields.get(j),"type"),new Attribute(structMatchingNode.fields.get(j),"type"))
+                                        .by(rrr -> {
+                                            Type typeExpected = rrr.get(0);
+                                            Type typeGot = rrr.get(1);
+                                            if((typeGot != AnyType.INSTANCE) && (typeExpected != typeGot)){
+                                                rrr.error(format("Type of the field number %d th doesn't match with the type of corresponding field of the switch structure," +
+                                                        " expected %s but got %s", finalJ,typeExpected,typeGot),statementNode);
+                                            }
+                                        });
+                                    }
+                                }
+                            }else {
+                                rr.error(format("Type of the case expression doesn't match with the type of the switch expression," +
+                                        " expected %s but got %s",typeSwitch,type),statementNode);
+                            }
+
+                        }
+                        else if (type != typeSwitch){
+                            rr.error(format("Type of the case expression doesn't match with the type of the switch expression," +
+                                    " expected %s but got %s",typeSwitch,type),statementNode);
+                        }
+                    });
+                } else{
+                    r.error("Unexpected Statement in the switch block",statementNode);
+                }
+            }
+            //Check if no more than 1 default case
+            if(nbDebault > 1){
+                r.error(format("Too many default case, expected 0 or 1 but got %d",nbDebault),node);
+            }
+        });
+    }
+
+
+
+
 
     // ---------------------------------------------------------------------------------------------
 

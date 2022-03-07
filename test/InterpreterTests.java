@@ -204,6 +204,14 @@ public final class InterpreterTests extends TestFixture {
          // test short circuit
         checkExpr("true || print(\"x\") == \"y\"", true, "");
         checkExpr("false && print(\"x\") == \"y\"", false, "");
+
+        checkExpr("3 is Int",true);
+        checkExpr("3 is Float",false);
+        checkExpr("3.14 is Float",true);
+        checkExpr("\"3\" is Int", false);
+        checkExpr("\"3\" is String", true);
+        checkExpr("true is Bool",true);
+        checkExpr("null is Void", false);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -346,6 +354,42 @@ public final class InterpreterTests extends TestFixture {
     @Test public void testUnconditionalReturn()
     {
         check("fun f(): Int { if (true) return 1 else return 2 } ; return f()", 1L);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    @Test public void testSwitches() {
+        check("switch(2) { case 1 { return 1 }"+
+                "case 2 { return 2} }",2L);
+
+        check("switch(\"Good morning\") { case \"Good\" { return 1 }"+
+                "case \"Good morning\" { return 2 } default { return 3 } }", 2L);
+
+        check("switch(1.0) { case 1.1 { return 3}"+
+                "default { return 4 } }", 4L);
+
+        check("switch(2) { case 1 { return 1 }"+
+                "default {return 2} case 2 { return 3} }",2L);
+
+        check("struct P { var x: Int; var y: Int }" +
+                "var p: P = $P(1, 2)" +
+                "switch(p){"+
+                "case (1,2) { return 1 }"+
+                "default  { return 3 } }",1L);
+
+        check("struct P { var x: Int; var y: Int }" +
+                "var p: P = $P(3, 4)" +
+                "switch(p){"+
+                "case (1,1) { return 1 }"+
+                "case (_,4) { return 2 }"+
+                "default  { return 3 } }",2L);
+
+        check("struct P { var x: Int; var y: Int; var z: Int}" +
+                "var p: P = $P(4, 5, 9)" +
+                "switch(p){"+
+                "case (1,1,2) { return 1 }"+
+                "case (_,_,_) { return 2 }"+
+                "default  { return 3 } }",2L);
     }
 
     // ---------------------------------------------------------------------------------------------

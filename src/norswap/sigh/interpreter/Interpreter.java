@@ -5,10 +5,7 @@ import norswap.sigh.scopes.DeclarationKind;
 import norswap.sigh.scopes.RootScope;
 import norswap.sigh.scopes.Scope;
 import norswap.sigh.scopes.SyntheticDeclarationNode;
-import norswap.sigh.types.FloatType;
-import norswap.sigh.types.IntType;
-import norswap.sigh.types.StringType;
-import norswap.sigh.types.Type;
+import norswap.sigh.types.*;
 import norswap.uranium.Reactor;
 import norswap.utils.Util;
 import norswap.utils.exceptions.Exceptions;
@@ -73,6 +70,7 @@ public final class Interpreter
         visitor.register(FunCallNode.class,              this::funCall);
         visitor.register(UnaryExpressionNode.class,      this::unaryExpression);
         visitor.register(BinaryExpressionNode.class,     this::binaryExpression);
+        visitor.register(BinaryExpressionTypeCheckNode.class, this::binaryExpressionTypeCheck);
         visitor.register(AssignmentNode.class,           this::assignment);
 
         // statement groups & declarations
@@ -86,6 +84,7 @@ public final class Interpreter
         visitor.register(IfNode.class,                   this::ifStmt);
         visitor.register(WhileNode.class,                this::whileStmt);
         visitor.register(ReturnNode.class,               this::returnStmt);
+        visitor.register(SwitchNode.class,               this::switchStmt);
 
         visitor.registerFallback(node -> null);
     }
@@ -190,6 +189,16 @@ public final class Interpreter
         }
 
         throw new Error("should not reach here");
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private boolean binaryExpressionTypeCheck(BinaryExpressionTypeCheckNode node) {
+        Type typeLeft = reactor.get(node.left,"type");
+        String nameTypeLeft = typeLeft.name();
+        String nameTypeRight = ((SimpleTypeNode) node.right).name;
+        return nameTypeLeft.equals(nameTypeRight);
+
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -508,6 +517,54 @@ public final class Interpreter
 
     private Void returnStmt (ReturnNode node) {
         throw new Return(node.expression == null ? null : get(node.expression));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private Void switchStmt (SwitchNode node) {
+        Object toMatch = get(node.expression);
+        for (StatementNode caseStmt : node.caseList){
+            if (caseStmt instanceof CaseNode) {
+                ExpressionNode expression = ((CaseNode) caseStmt).expression;
+                if (expression instanceof StructMatchingNode) {
+                    int numMatchFields = 0;
+                    StructMatchingNode structMatchingNode = (StructMatchingNode) expression;
+                    HashMap structHashmap = (HashMap) toMatch;
+                    StructType structType = (StructType) reactor.get(node.expression,"type");
+                    for (int fieldIndex = 0; fieldIndex < structMatchingNode.fields.size(); fieldIndex++) {
+                        ExpressionNode field = structMatchingNode.fields.get(fieldIndex);
+                        Type fieldType = reactor.get(field,"type");
+                        if (fieldType != AnyType.INSTANCE) {
+                            FieldDeclarationNode fieldToMatch = structType.node.fields.get(fieldIndex);
+                            Object valueToMatch = structHashmap.get(fieldToMatch.name);
+                            Object isCase = get(field);
+                            if (!valueToMatch.equals(isCase)) {
+                                break;
+                            }
+                        }
+                        numMatchFields++;
+                    }
+                    if (numMatchFields==structMatchingNode.fields.size()) {
+                        get(((CaseNode) caseStmt).body);
+                        return null;
+                    }
+                }
+                else {
+                    Type matchType  = reactor.get(node.expression, "type");
+                    Object isCase = get(expression);
+                    Boolean equality = toMatch.equals(isCase);
+                    if (equality) {
+                        get(((CaseNode) caseStmt).body);
+                        return null;
+                    }
+                }
+            }
+            if(caseStmt instanceof DefaultNode){
+                get(((DefaultNode) caseStmt).body);
+                return null;
+            }
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------------------------------------

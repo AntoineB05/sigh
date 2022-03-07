@@ -2,6 +2,7 @@ package norswap.sigh;
 
 import norswap.autumn.Grammar;
 import norswap.sigh.ast.*;
+import norswap.sigh.types.AnyType;
 
 import static norswap.sigh.ast.UnaryOperator.NOT;
 
@@ -51,6 +52,7 @@ public class SighGrammar extends Grammar
     public rule DOT             = word(".");
     public rule DOLLAR          = word("$");
     public rule COMMA           = word(",");
+    public rule UNDERSCORE      = word("_");
 
     public rule _var            = reserved("var");
     public rule _fun            = reserved("fun");
@@ -59,6 +61,10 @@ public class SighGrammar extends Grammar
     public rule _else           = reserved("else");
     public rule _while          = reserved("while");
     public rule _return         = reserved("return");
+    public rule _switch         = reserved("switch");
+    public rule _case           = reserved("case");
+    public rule _default        = reserved("default");
+    public rule _is             = reserved("is");
 
     public rule number =
         seq(opt('-'), choice('0', digit.at_least(1)));
@@ -116,6 +122,11 @@ public class SighGrammar extends Grammar
         seq(LSQUARE, expressions, RSQUARE)
         .push($ -> new ArrayLiteralNode($.span(), $.$[0]));
 
+    public rule struct_matching =  lazy(() ->
+            seq(LPAREN,this.case_expresion.sep(0,COMMA),RPAREN))
+            .as_list(ExpressionNode.class);
+
+
     public rule basic_expression = choice(
         constructor,
         reference,
@@ -124,6 +135,13 @@ public class SighGrammar extends Grammar
         string,
         paren_expression,
         array);
+
+    public rule case_expresion = choice(
+            floating,
+            integer,
+            string,
+            struct_matching.push($ -> new StructMatchingNode($.span(),$.$[0])),
+            UNDERSCORE.push($ -> new AnyLiteralNode($.span())));
 
     public rule function_args =
         seq(LPAREN, expressions, RPAREN);
@@ -169,8 +187,13 @@ public class SighGrammar extends Grammar
         .infix(add_op,
             $ -> new BinaryExpressionNode($.span(), $.$[0], $.$[1], $.$[2]));
 
+    public rule is_expr = left_expression()
+        .left(add_expr).right(simple_type)
+        .infix(_is.as_val(BinaryOperator.IS),
+                $ -> new BinaryExpressionTypeCheckNode($.span(), $.$[0], $.$[1], $.$[2] ));
+
     public rule order_expr = left_expression()
-        .operand(add_expr)
+        .operand(is_expr)
         .infix(cmp_op,
             $ -> new BinaryExpressionNode($.span(), $.$[0], $.$[1], $.$[2]));
 
@@ -217,7 +240,8 @@ public class SighGrammar extends Grammar
         this.if_stmt,
         this.while_stmt,
         this.return_stmt,
-        this.expression_stmt));
+        this.expression_stmt,
+        this.switch_stmt));
 
     public rule statements =
         statement.at_least(0)
@@ -268,6 +292,22 @@ public class SighGrammar extends Grammar
     public rule return_stmt =
         seq(_return, expression.or_push_null())
         .push($ -> new ReturnNode($.span(), $.$[0]));
+
+    public rule case_stmt =
+        seq(_case,case_expresion,block)
+        .push($ -> new CaseNode($.span(),$.$[0],$.$[1]));
+
+    public rule default_stmt =
+            seq(_default,block)
+                    .push($ -> new DefaultNode($.span(),$.$[0]));
+
+    public rule case_stmts =
+        choice(case_stmt,default_stmt,statement).at_least(0)
+        .as_list(StatementNode.class);
+
+    public rule switch_stmt =
+        seq(_switch,LPAREN,basic_expression,RPAREN,LBRACE,case_stmts,RBRACE)
+        .push($ -> new SwitchNode($.span(),$.$[0],$.$[1]));
 
     public rule root =
         seq(ws, statement.at_least(1))

@@ -149,6 +149,19 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
 
         successInput("return \"hi\" != \"hi\"");
         successInput("return [1] != [1]");
+
+        successInput("return 3 is Int");
+        successInput("return \"hi\" is Float");
+        successInput("return 0.3465 is Void");
+        successInput("return 8 is Int");
+        successInput("return true is Bool");
+        successInput(
+                "struct P { var x: Int; var y: Int }" +
+                        "var p: P = $P(1, 2);" +
+                        "return p is P");
+
+        failureInput("return false is false");
+
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -298,6 +311,100 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
         //   not the whole function declaration
         failureInputWith("fun f(): Int { if (true) return 1 } ; return f()",
             "Missing return in function");
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    @Test public void testSwitches() {
+        successInput(
+                "switch(1){ case 1 { print(\"i=1\") } "+
+                            "case 2{ print(\"i=2\") } }"
+        );
+
+        successInput(
+                "var str : String = \"Hello\""+
+                "switch(str){"+
+                        "case \"Hi\"{ print(\"Hi\") } }"
+        );
+
+        successInput(
+                "var num : Int = 3"+
+                "switch(num){"+
+                        "case 3 { print(\"3\") }"+
+                        "case 3 { print(\"3\") }"+
+                        "default  { print(\"3\") }"+
+                        "case 3 { print(\"3\") } }"
+        );
+
+        successInput(
+                "struct P { var x: Int; var y: Int }" +
+                "var p: P = $P(1, 2)" +
+                "switch(p){"+
+                        "case (1,1) { print(\"1 and 1\") }"+
+                        "case (_,3) { print(\"? and 3\") }"+
+                        "case (1,_) { print(\"1 and ?\") }"+
+                        "case (_,_) { print(\"this is default\") }"+
+                        "default  { print(\"other\") } }"
+        );
+
+        failureInputWith(
+                "switch(1){ case 1 { print(\"i=1\") } "+
+                        "default { print(\"else\") } "+
+                        "default { print(\"something else\") } }",
+                "Too many default case, expected 0 or 1 but got 2"
+
+        );
+
+        failureInputWith(
+                "switch (1) { if (3 > 0) {return 3}}",
+                "Unexpected Statement in the switch block"
+        );
+
+        failureInputWith(
+                "switch(1){ case \"1\" { print(\"i=1\") } "+
+                        "case 2{ print(\"i=2\") } }",
+                "Type of the case expression doesn't match with the type of the switch expression," +
+                        " expected Int but got String"
+        );
+
+        failureInputWith(
+                "switch(3){"+
+                        "case (1,1) { print(\"1 and 1\") }"+
+                        "case (_,3) { print(\"? and 3\") }"+
+                        "default  { print(\"other\") } }",
+                "Type of the case expression doesn't match with the type of the switch expression," +
+                        " expected Int but got StructMatching"
+        );
+
+        failureInputWith(
+                "struct P { var x: Int; var y: Int }" +
+                        "var p: P = $P(1, 2)" +
+                        "switch(p){"+
+                        "case (_,\"3\") { print(\"? and 3\") }"+
+                        "default  { print(\"other\") } }",
+                "Type of the field number 1 th doesn't match with the type of corresponding field of the switch structure," +
+                        " expected Int but got String"
+        );
+
+        failureInputWith(
+                "struct P { var x: Int; var y: Int }" +
+                        "var p: P = $P(1, 2)" +
+                        "switch(p){"+
+                        "case (_,3,_) { print(\"? and 3\") }"+
+                        "default  { print(\"other\") } }",
+                "Number of struct fields in case doesn't match with the number of fields of the switch structure," +
+                        " expected 2 but got 3"
+        );
+
+        failureInputWith(
+                "struct P { var x: Int; var y: Int ; var z: Int}" +
+                        "var p: P = $P(1, 2, 3)" +
+                        "switch(p){"+
+                        "case (_,3) { print(\"? and 3\") }"+
+                        "default  { print(\"other\") } }",
+                "Number of struct fields in case doesn't match with the number of fields of the switch structure," +
+                        " expected 3 but got 2"
+        );
     }
 
     // ---------------------------------------------------------------------------------------------
