@@ -90,7 +90,7 @@ struct S {
 }
 var s : S = $S(true,null)
 switch(s) {
-    case (true,pair) {
+    case (true,_) {
         print("s.b is true and s.p is equal to pair")
     }
     case (false,_) {

@@ -941,7 +941,7 @@ public final class SemanticAnalysis
                                             Type typeExpected = rrr.get(0);
                                             Type typeGot = rrr.get(1);
                                             if((typeGot != AnyType.INSTANCE) && (typeExpected != typeGot)){
-                                                rrr.error(format("Type of the field number %d th doesn't match with the type of corresponding field of the switch structure," +
+                                                rrr.error(format("Type of the field number %d doesn't match with the type of corresponding field of the switch structure," +
                                                         " expected %s but got %s", finalJ,typeExpected,typeGot),statementNode);
                                             }
                                         });

@@ -79,6 +79,12 @@ public class SighGrammar extends Grammar
         .push($ -> new FloatLiteralNode($.span(), Double.parseDouble($.str())))
         .word();
 
+    public rule bool =
+        choice(
+            word("true").push($ -> new ReferenceNode($.span(),"true")),
+            word("false").push($ -> new ReferenceNode($.span(),"false"))
+        );
+
     public rule string_char = choice(
         seq(set('"', '\\').not(), any),
         seq('\\', set("\\nrt")));
@@ -123,7 +129,7 @@ public class SighGrammar extends Grammar
         .push($ -> new ArrayLiteralNode($.span(), $.$[0]));
 
     public rule struct_matching =  lazy(() ->
-            seq(LPAREN,this.case_expresion.sep(0,COMMA),RPAREN))
+            seq(LPAREN,this.field_match_expression.sep(0,COMMA),RPAREN))
             .as_list(ExpressionNode.class);
 
 
@@ -136,14 +142,20 @@ public class SighGrammar extends Grammar
         paren_expression,
         array);
 
-    public rule case_expresion = choice(
-            UNDERSCORE.push($ -> new AnyLiteralNode($.span())),
+    public rule case_expression = choice(
             floating,
             integer,
             string,
-            reference,
-            constructor,
+            bool,
             struct_matching.push($ -> new StructMatchingNode($.span(),$.$[0])));
+
+    public rule field_match_expression = choice(
+        floating,
+        integer,
+        string,
+        bool,
+        UNDERSCORE.push($ -> new AnyLiteralNode($.span())));
+
 
     public rule function_args =
         seq(LPAREN, expressions, RPAREN);
@@ -296,7 +308,7 @@ public class SighGrammar extends Grammar
         .push($ -> new ReturnNode($.span(), $.$[0]));
 
     public rule case_stmt =
-        seq(_case,case_expresion,block)
+        seq(_case,case_expression,block)
         .push($ -> new CaseNode($.span(),$.$[0],$.$[1]));
 
     public rule default_stmt =

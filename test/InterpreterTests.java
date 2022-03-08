@@ -397,6 +397,9 @@ public final class InterpreterTests extends TestFixture {
                 "case (1,1,2) { return 1 }"+
                 "case (_,_,_) { return 2 }"+
                 "default  { return 3 } }",2L);
+
+        check("switch(2) { }"+
+            "return 2",2L);
     }
 
     // ---------------------------------------------------------------------------------------------

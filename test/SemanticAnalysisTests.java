@@ -347,6 +347,17 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
                         "default  { print(\"other\") } }"
         );
 
+        successInput(
+            "struct P { var x: Int; var y: String }" +
+                "var p: P = $P(1, \"b\")" +
+                "switch(p){"+
+                "case (1,\"a\") { print(\"1 and a\") }"+
+                "case (_,\"b\") { print(\"? and b\") }"+
+                "case (1,_) { print(\"1 and ?\") }"+
+                "case (_,_) { print(\"this is default\") }"+
+                "default  { print(\"other\") } }"
+        );
+
         failureInputWith(
                 "switch(1){ case 1 { print(\"i=1\") } "+
                         "default { print(\"else\") } "+
@@ -382,7 +393,7 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
                         "switch(p){"+
                         "case (_,\"3\") { print(\"? and 3\") }"+
                         "default  { print(\"other\") } }",
-                "Type of the field number 1 th doesn't match with the type of corresponding field of the switch structure," +
+                "Type of the field number 1 doesn't match with the type of corresponding field of the switch structure," +
                         " expected Int but got String"
         );
 
@@ -404,6 +415,16 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
                         "default  { print(\"other\") } }",
                 "Number of struct fields in case doesn't match with the number of fields of the switch structure," +
                         " expected 3 but got 2"
+        );
+
+        failureInputWith(
+            "struct P { var x: Int}" +
+                "var p: P = $P(1)" +
+                "switch(p){"+
+                "case () { print(\"1\") }"+
+                "default  { print(\"other\") } }",
+            "Number of struct fields in case doesn't match with the number of fields of the switch structure," +
+                " expected 1 but got 0"
         );
     }
 
