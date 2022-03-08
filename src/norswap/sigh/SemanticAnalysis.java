@@ -927,12 +927,14 @@ public final class SemanticAnalysis
                                 StructType typeSwitchStruct = (StructType) typeSwitch;
                                 StructMatchingNode structMatchingNode = (StructMatchingNode) ((CaseNode) statementNode).expression;
                                 int nbFields = structMatchingNode.fields.size();
+                                // check if the number of fields match
                                 if(typeSwitchStruct.node.fields.size() != nbFields) {
                                     rr.error(format("Number of struct fields in case doesn't match with the number of fields of the switch structure," +
                                             " expected %d but got %d",typeSwitchStruct.node.fields.size(),nbFields),statementNode);
                                 }else {
                                     for (int j=0; j<nbFields; j++){
                                         int finalJ = j;
+                                        // Add rule to each field to check the type
                                         R.rule()
                                         .using(new Attribute(typeSwitchStruct.node.fields.get(j),"type"),new Attribute(structMatchingNode.fields.get(j),"type"))
                                         .by(rrr -> {

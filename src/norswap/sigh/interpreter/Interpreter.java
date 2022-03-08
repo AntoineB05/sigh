@@ -523,6 +523,7 @@ public final class Interpreter
 
     private Void switchStmt (SwitchNode node) {
         Object toMatch = get(node.expression);
+        DefaultNode defaultNode = null;
         for (StatementNode caseStmt : node.caseList){
             if (caseStmt instanceof CaseNode) {
                 ExpressionNode expression = ((CaseNode) caseStmt).expression;
@@ -560,9 +561,11 @@ public final class Interpreter
                 }
             }
             if(caseStmt instanceof DefaultNode){
-                get(((DefaultNode) caseStmt).body);
-                return null;
+                defaultNode = ((DefaultNode) caseStmt);
             }
+        }
+        if(defaultNode != null){
+            get(defaultNode.body);
         }
         return null;
     }

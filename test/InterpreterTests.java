@@ -369,7 +369,14 @@ public final class InterpreterTests extends TestFixture {
                 "default { return 4 } }", 4L);
 
         check("switch(2) { case 1 { return 1 }"+
-                "default {return 2} case 2 { return 3} }",2L);
+                "default {return 2} case 2 { return 3} }",3L);
+
+        check("switch(3) { case 1 { return 1 }"+
+            "default {return 2} case 2 { return 3} }",2L);
+
+        check("var i : Int = 1"+
+            "switch(i) { case 1 { return 1 }"+
+            "default {return 2} case 2 { return 3} }",1L);
 
         check("struct P { var x: Int; var y: Int }" +
                 "var p: P = $P(1, 2)" +
