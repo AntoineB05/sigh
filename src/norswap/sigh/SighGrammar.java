@@ -137,11 +137,13 @@ public class SighGrammar extends Grammar
         array);
 
     public rule case_expresion = choice(
+            UNDERSCORE.push($ -> new AnyLiteralNode($.span())),
             floating,
             integer,
             string,
-            struct_matching.push($ -> new StructMatchingNode($.span(),$.$[0])),
-            UNDERSCORE.push($ -> new AnyLiteralNode($.span())));
+            reference,
+            constructor,
+            struct_matching.push($ -> new StructMatchingNode($.span(),$.$[0])));
 
     public rule function_args =
         seq(LPAREN, expressions, RPAREN);

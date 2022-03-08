@@ -16,7 +16,7 @@ fun array_add (a: Int[]): Int
     var i: Int = 1
     var result: Int = a[0]
 
-    switch(2){
+    switch(i){
             case 1{
                 print("i=1")
             }
@@ -65,6 +65,9 @@ struct Pair {
 }
 var pair : Pair = $Pair (0 ,1)
 var isPair : Bool = pair is Pair
+var isInt : Bool = pair is Int
+print("" + isPair)
+print("" + isInt)
 
 switch(pair) {
     case (0,0){
@@ -80,6 +83,21 @@ switch(pair) {
         print("something else")
     }
 }
+
+struct S {
+    var b: Bool
+    var p: Pair
+}
+var s : S = $S(true,null)
+switch(s) {
+    case (true,pair) {
+        print("s.b is true and s.p is equal to pair")
+    }
+    case (false,_) {
+        print("s.b is false")
+    }
+}
+print(""+ (s.p==null))
 
 var type: Type = Pair
 print("" + type)
