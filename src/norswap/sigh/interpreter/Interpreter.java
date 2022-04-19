@@ -7,6 +7,7 @@ import norswap.sigh.scopes.Scope;
 import norswap.sigh.scopes.SyntheticDeclarationNode;
 import norswap.sigh.types.*;
 import norswap.uranium.Reactor;
+import norswap.uranium.SemanticError;
 import norswap.utils.Util;
 import norswap.utils.exceptions.Exceptions;
 import norswap.utils.exceptions.NoStackException;
@@ -86,6 +87,7 @@ public final class Interpreter
         visitor.register(WhileNode.class,                this::whileStmt);
         visitor.register(ReturnNode.class,               this::returnStmt);
         visitor.register(SwitchNode.class,               this::switchStmt);
+        visitor.register(IfUnwrapNode.class,             this::isUnwrap);
 
         visitor.registerFallback(node -> null);
     }
@@ -531,10 +533,21 @@ public final class Interpreter
         || decl instanceof ParameterNode
         || decl instanceof ParameterClosureNode
         || decl instanceof SyntheticDeclarationNode
-                && ((SyntheticDeclarationNode) decl).kind() == DeclarationKind.VARIABLE)
+                && ((SyntheticDeclarationNode) decl).kind() == DeclarationKind.VARIABLE) {
+            if (storage.get(scope, node.name) == null) {
+                throw new InterpreterException("error : variable " +node.name + " not initialize",null);
+            }
+            if (decl instanceof VarDeclarationNode && storage.get(scope, node.name) == Null.INSTANCE){
+                VarDeclarationNode varDeclarationNode = (VarDeclarationNode) decl;
+                if(varDeclarationNode.type instanceof OptTypeNode && node.unwrap){
+                    throw new InterpreterException("error : force to unwrap empty optional",null);
+                }
+
+            }
             return scope == rootScope
                 ? rootStorage.get(scope, node.name)
                 : storage.get(scope, node.name);
+        }
         return decl; // structure or function
     }
 
@@ -600,7 +613,12 @@ public final class Interpreter
     private Void varDecl (VarDeclarationNode node)
     {
         Scope scope = reactor.get(node, "scope");
-        assign(scope, node.name, get(node.initializer), reactor.get(node, "type"));
+        Type type = reactor.get(node.type, "value");
+        if(node.initializer != null) {
+            assign(scope, node.name, get(node.initializer), reactor.get(node, "type"));
+        } else if (type instanceof OptType) {
+            assign(scope, node.name, Null.INSTANCE, reactor.get(node, "type"));
+        }
         return null;
     }
 
@@ -614,4 +632,22 @@ public final class Interpreter
     }
 
     // ---------------------------------------------------------------------------------------------
+
+    private Void isUnwrap (IfUnwrapNode node)
+    {
+        try { // try to unwrap the optional
+            get(node.varDecl);
+        }catch (InterpreterException e){ // empty optional -> execute the false statement
+            if (e.getMessage().equals("error : force to unwrap empty optional")){
+                if (node.falseStatement != null) get(node.falseStatement);
+                return null;
+            }else {
+                throw e;
+            }
+        }
+        //unwrap successful -> execute the true statement
+        get(node.trueStatement);
+
+        return null;
+    }
 }

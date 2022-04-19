@@ -20,6 +20,10 @@ public class GrammarTests extends AutumnTestFixture {
         return new IntLiteralNode(null, i);
     }
 
+    private static StringLiteralNode stringlit (String i) {
+        return new StringLiteralNode(null, i);
+    }
+
     private static FloatLiteralNode floatlit (double d) {
         return new FloatLiteralNode(null, d);
     }
@@ -35,10 +39,10 @@ public class GrammarTests extends AutumnTestFixture {
         successExpect("\"hello\"", new StringLiteralNode(null, "hello"));
         successExpect("(42)", new ParenthesizedNode(null, intlit(42)));
         successExpect("[1, 2, 3]", new ArrayLiteralNode(null, asList(intlit(1), intlit(2), intlit(3))));
-        successExpect("true", new ReferenceNode(null, "true"));
-        successExpect("false", new ReferenceNode(null, "false"));
-        successExpect("null", new ReferenceNode(null, "null"));
-        successExpect("!false", new UnaryExpressionNode(null, UnaryOperator.NOT, new ReferenceNode(null, "false")));
+        successExpect("true", new ReferenceNode(null, "true",false));
+        successExpect("false", new ReferenceNode(null, "false",false));
+        successExpect("null", new ReferenceNode(null, "null",false));
+        successExpect("!false", new UnaryExpressionNode(null, UnaryOperator.NOT, new ReferenceNode(null, "false",false)));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -86,7 +90,7 @@ public class GrammarTests extends AutumnTestFixture {
             new ArrayLiteralNode(null, asList(intlit(1))), intlit(0)));
         successExpect("[1].length", new FieldAccessNode(null,
             new ArrayLiteralNode(null, asList(intlit(1))), "length"));
-        successExpect("p.x", new FieldAccessNode(null, new ReferenceNode(null, "p"), "x"));
+        successExpect("p.x", new FieldAccessNode(null, new ReferenceNode(null, "p",false), "x"));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -95,7 +99,9 @@ public class GrammarTests extends AutumnTestFixture {
         rule = grammar.statement;
 
         successExpect("var x: Int = 1", new VarDeclarationNode(null,
-            "x", new SimpleTypeNode(null, "Int"), intlit(1)));
+            "x", new SimpleTypeNode(null, "Int"), intlit(1),false));
+
+        successExpect("var i: Int",new VarDeclarationNode(null,"i",new SimpleTypeNode(null,"Int"),null,false));
 
         successExpect("struct P {}", new StructDeclarationNode(null, "P", asList()));
 
@@ -119,18 +125,18 @@ public class GrammarTests extends AutumnTestFixture {
         successExpect("return", new ReturnNode(null, null));
         successExpect("return 1", new ReturnNode(null, intlit(1)));
         successExpect("print(1)", new ExpressionStatementNode(null,
-            new FunCallNode(null, new ReferenceNode(null, "print"), asList(intlit(1)))));
+            new FunCallNode(null, new ReferenceNode(null, "print",false), asList(intlit(1)))));
         successExpect("{ return }", new BlockNode(null, asList(new ReturnNode(null, null))));
 
 
-        successExpect("if true return 1 else return 2", new IfNode(null, new ReferenceNode(null, "true"),
+        successExpect("if true return 1 else return 2", new IfNode(null, new ReferenceNode(null, "true",false),
             new ReturnNode(null, intlit(1)),
             new ReturnNode(null, intlit(2))));
 
         successExpect("if false return 1 else if true return 2 else return 3 ",
-            new IfNode(null, new ReferenceNode(null, "false"),
+            new IfNode(null, new ReferenceNode(null, "false",false),
                 new ReturnNode(null, intlit(1)),
-                new IfNode(null, new ReferenceNode(null, "true"),
+                new IfNode(null, new ReferenceNode(null, "true",false),
                     new ReturnNode(null, intlit(2)),
                     new ReturnNode(null, intlit(3)))));
 
@@ -150,7 +156,7 @@ public class GrammarTests extends AutumnTestFixture {
 
         successExpect("3.0 is Bool",new BinaryExpressionTypeCheckNode(null,new FloatLiteralNode(null,3.0),IS,new SimpleTypeNode(null,"Bool")));
 
-        successExpect("true is Float", new BinaryExpressionTypeCheckNode(null,new ReferenceNode(null,"true"),IS,new SimpleTypeNode(null,"Float")));
+        successExpect("true is Float", new BinaryExpressionTypeCheckNode(null,new ReferenceNode(null,"true",false),IS,new SimpleTypeNode(null,"Float")));
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -162,9 +168,53 @@ public class GrammarTests extends AutumnTestFixture {
             asList(new CaseNode(null,intlit(2),new BlockNode(null,asList(new ReturnNode(null,intlit(2))))),
                 new DefaultNode(null,new BlockNode(null,asList(new ReturnNode(null,intlit(0))))))));
 
-        successExpect("switch (p) { case (1,2) {} case(_,4) {}}",new SwitchNode(null,new ReferenceNode(null,"p"),
+        successExpect("switch (p) { case (1,2) {} case(_,4) {}}",new SwitchNode(null,new ReferenceNode(null,"p",false),
             asList(new CaseNode(null,new StructMatchingNode(null,asList(intlit(1),intlit(2))),new BlockNode(null,asList())),
                 new CaseNode(null,new StructMatchingNode(null,asList(new AnyLiteralNode(null),intlit(4))),new BlockNode(null,asList())))));
+    }
+
+    @Test public void testOptionalDecl() {
+        rule = grammar.statement;
+
+        successExpect("var i: Int?",new VarDeclarationNode(null,"i",new OptTypeNode(null,"Int"),null,false));
+
+        successExpect("var test: String?",new VarDeclarationNode(null,"test",new OptTypeNode(null,"String"),null,false));
+
+        successExpect("var i: Int? = 5",new VarDeclarationNode(null,"i",new OptTypeNode(null,"Int"), intlit(5),false));
+
+        failure("var j: Int ?");
+
+    }
+
+    @Test public void testOptionalUnwrapWithBang(){
+        rule = grammar.expression;
+
+        successExpect("i!",new ReferenceNode(null, "i",true));
+
+        failure("variable !");
+    }
+
+    @Test public void testOptionalUnwrapWithIf(){
+        rule = grammar.statements;
+
+        successExpect("var testOpt: String? = \"test\" \n" +
+            "if var testUnwrap:String = testOpt{" +
+            "var i: String = testUnwrap}",asList(new VarDeclarationNode(null,"testOpt", new OptTypeNode(null,"String"), stringlit("test"),false),
+            new IfUnwrapNode(null,new VarDeclarationNode(null,"testUnwrap",new SimpleTypeNode(null,"String"),new ReferenceNode(null,"testOpt",true),true),new BlockNode(null,
+                asList(new VarDeclarationNode(null,"i",new SimpleTypeNode(null,"String"),new ReferenceNode(null,"testUnwrap",false),false))),null)));
+
+        successExpect("if var testUnwrap:String = testOpt{" +
+            "var i: String = testUnwrap}\n" +
+            "else{var i: String = \"elseStatement\"}",asList(new IfUnwrapNode(null,new VarDeclarationNode(null,"testUnwrap",new SimpleTypeNode(null,"String"),new ReferenceNode(null,"testOpt",true),true),new BlockNode(null,
+            asList(new VarDeclarationNode(null,"i",new SimpleTypeNode(null,"String"),new ReferenceNode(null,"testUnwrap",false),false))),
+            new BlockNode(null, asList(new VarDeclarationNode(null,"i",new SimpleTypeNode(null,"String"),stringlit("elseStatement"),false))))));
+
+        failure("if var testUnwrap:Int = 5{}");
+        failure("if var testUnwrap:Int");
+        failure("if(var testUnwrap:Int = testOpt){}");
+
+        failure("if var testUnwrap = testOpt{");
+
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -176,12 +226,12 @@ public class GrammarTests extends AutumnTestFixture {
             new ClosureTypeNode(null,asList(new SimpleTypeNode(null,"Int")),new SimpleTypeNode(null,"Float")),
             new BlockNode(null,asList(new ReturnNode(null,new ClosureExpressionNode(null,asList(new ParameterClosureNode(null,"x")),
                 new BlockNode(null,asList(new ReturnNode(null,new BinaryExpressionNode(null,
-                    new ReferenceNode(null,"x"),DIVIDE,floatlit(1.5)))))))))));
+                    new ReferenceNode(null,"x",false),DIVIDE,floatlit(1.5)))))))))));
 
         successExpect("fun f(closure : ()-> Int) : Int { return closure()}",new FunDeclarationNode(null,"f",asList(
             new ParameterNode(null,"closure",new ClosureTypeNode(null,asList(),new SimpleTypeNode(null,"Int")))),
             new SimpleTypeNode(null,"Int"), new BlockNode(null,asList(new ReturnNode(null,new FunCallNode(null,
-                new ReferenceNode(null,"closure"),asList()))))
+                new ReferenceNode(null,"closure",false),asList()))))
         ));
 
         successExpect("fun f() : (Int, String) -> Void { return {(x,y) in print(y)}}",new FunDeclarationNode(null,"f",asList(),
@@ -189,8 +239,8 @@ public class GrammarTests extends AutumnTestFixture {
                 new SimpleTypeNode(null,"Void")),
             new BlockNode(null,asList(new ReturnNode(null,new ClosureExpressionNode(null,asList(new ParameterClosureNode(null,"x"),
                 new ParameterClosureNode(null,"y")),
-                new BlockNode(null,asList(new ExpressionStatementNode(null,new FunCallNode(null,new ReferenceNode(null,"print"),
-                    asList(new ReferenceNode(null,"y"))))))))))));
+                new BlockNode(null,asList(new ExpressionStatementNode(null,new FunCallNode(null,new ReferenceNode(null,"print",false),
+                    asList(new ReferenceNode(null,"y",false))))))))))));
 
     }
 

@@ -7,6 +7,7 @@ import norswap.sigh.SemanticAnalysis;
 import norswap.sigh.SighGrammar;
 import norswap.sigh.ast.SighNode;
 import norswap.sigh.interpreter.Interpreter;
+import norswap.sigh.interpreter.InterpreterException;
 import norswap.sigh.interpreter.Null;
 import norswap.uranium.Reactor;
 import norswap.uranium.SemanticError;
@@ -400,6 +401,59 @@ public final class InterpreterTests extends TestFixture {
 
         check("switch(2) { }"+
             "return 2",2L);
+    }
+
+    @Test public void testOptional() {
+        check("var i :Int? = 2"+
+            "return i!",2L);
+
+        check("var i :Int?"+
+            "i = 5" +
+            "return i!",5L);
+
+        check("var i :Int? = 1"+
+            "var j :Int\n" +
+            "j = i! + 2" +
+            "return j",3L);
+
+        checkThrows(
+            "var test:String?" +
+                "print(test!)",
+            InterpreterException.class);
+
+        check("var test:String?"+
+            "return(test)",Null.INSTANCE);
+
+        checkThrows(
+            "var test:String\n" +
+                "return test",
+            InterpreterException.class);
+
+        check("var i :Int? = 1"+
+            "var j :Int? = i\n" +
+            "i = 2" +
+            "return j",1L);
+
+        check("var i :Int? = 1"+
+            "var j :Int? = i\n" +
+            "j = 2" +
+            "return j!",2L);
+
+        check("var i :Int? = 1"+
+            "var j :Int? = 3\n" +
+            "j = i! + 1" +
+            "return j!",2L);
+
+        check("var i: Int? = 2"+
+            "if var j: Int = i{"+
+            "return j}"+
+            "return 1",2L);
+        check("var i: Int?"+
+            "if var j: Int = i{"+
+            "return j}"+
+            "return 1",1L);
+
+
     }
 
     // ---------------------------------------------------------------------------------------------
