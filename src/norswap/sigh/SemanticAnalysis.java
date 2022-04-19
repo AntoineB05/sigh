@@ -1,6 +1,7 @@
 package norswap.sigh;
 
 import norswap.sigh.ast.*;
+import norswap.sigh.interpreter.Void;
 import norswap.sigh.scopes.DeclarationContext;
 import norswap.sigh.scopes.DeclarationKind;
 import norswap.sigh.scopes.RootScope;
@@ -125,10 +126,12 @@ public final class SemanticAnalysis
         walker.register(AssignmentNode.class,           PRE_VISIT,  analysis::assignment);
         walker.register(StructMatchingNode.class,       PRE_VISIT,  analysis::structMatchingNode);
         walker.register(AnyLiteralNode.class,       PRE_VISIT,  analysis::anyLiteral);
+        walker.register(ClosureExpressionNode.class,    PRE_VISIT,   analysis::closureExpression);
 
         // types
         walker.register(SimpleTypeNode.class,           PRE_VISIT,  analysis::simpleType);
         walker.register(ArrayTypeNode.class,            PRE_VISIT,  analysis::arrayType);
+        walker.register(ClosureTypeNode.class,          PRE_VISIT,  analysis::closureType);
 
         // declarations & scopes
         walker.register(RootNode.class,                 PRE_VISIT,  analysis::root);
@@ -138,10 +141,12 @@ public final class SemanticAnalysis
         walker.register(ParameterNode.class,            PRE_VISIT,  analysis::parameter);
         walker.register(FunDeclarationNode.class,       PRE_VISIT,  analysis::funDecl);
         walker.register(StructDeclarationNode.class,    PRE_VISIT,  analysis::structDecl);
+        walker.register(ParameterClosureNode.class,     PRE_VISIT,  analysis::parameterClosure);
 
         walker.register(RootNode.class,                 POST_VISIT, analysis::popScope);
         walker.register(BlockNode.class,                POST_VISIT, analysis::popScope);
         walker.register(FunDeclarationNode.class,       POST_VISIT, analysis::popScope);
+        walker.register(ClosureExpressionNode.class,       POST_VISIT, analysis::popScope);
 
         // statements
         walker.register(ExpressionStatementNode.class,  PRE_VISIT,  node -> {});
@@ -195,6 +200,18 @@ public final class SemanticAnalysis
         DeclarationContext maybeCtx = scope.lookup(node.name);
 
         if (maybeCtx != null) {
+            SighNode maybeClosure = currentClosure();
+            if (maybeClosure!=null && maybeCtx.scope!=scope && !(maybeCtx.declaration instanceof SyntheticDeclarationNode)) {
+                ClosureExpressionNode closure = (ClosureExpressionNode) maybeClosure;
+                Scope cloScope = R.get(closure,"scope");
+                R.set(node, "decl",  maybeCtx.declaration);
+                R.set(node, "scope", cloScope);
+
+                R.rule(node, "type")
+                    .using(maybeCtx.declaration, "type")
+                    .by(Rule::copyFirst);
+                return;
+            }
             R.set(node, "decl",  maybeCtx.declaration);
             R.set(node, "scope", maybeCtx.scope);
 
@@ -414,6 +431,23 @@ public final class SemanticAnalysis
             R.set(arg, "index", i);
         });
 
+        R.rule()
+            .using(node.function,"type")
+            .by(r -> {
+                Type maybeFunType = r.get(0);
+                if (maybeFunType instanceof FunType) {
+                    FunType funType = cast(maybeFunType);
+                    forEachIndexed(node.arguments, (index,arg) -> {
+                        if (arg instanceof ClosureExpressionNode) {
+                            ClosureExpressionNode closure = (ClosureExpressionNode) arg;
+                            R.rule(closure,"funType")
+                                .by(rr -> rr.set(0,funType.paramTypes[index]));
+
+                        }
+                    });
+                }
+            });
+
         R.rule(node, "type")
         .using(dependencies)
         .by(r -> {
@@ -445,6 +479,16 @@ public final class SemanticAnalysis
                             "incompatible argument provided for argument %d: expected %s but got %s",
                             i, paramType, argType),
                         node.arguments.get(i));
+                else if (argType instanceof ClosureType && paramType instanceof FunType) {
+                    ClosureExpressionNode closure = (ClosureExpressionNode) node.arguments.get(i);
+                    Attribute[] attributes = new Attribute[closure.arguments.size()];
+                    forEachIndexed(closure.arguments, (index,arg) -> arg.attr("type"));
+                    R.rule(attributes)
+                        .by(rr -> {
+                            forEachIndexed(closure.arguments, (index,arg)-> rr.set(index,((FunType) paramType).paramTypes[index]));
+                        });
+                }
+
             }
         });
     }
@@ -463,6 +507,43 @@ public final class SemanticAnalysis
             if (!(opType instanceof BoolType))
                 r.error("Trying to negate type: " + opType, node);
         });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private void closureExpression (ClosureExpressionNode node) {
+        scope = new Scope(node, scope);
+        R.set(node, "scope", scope);
+
+        R.rule(node, "type")
+            .using(node.attr("value"))
+            .by (r -> {
+                int paramNum = node.arguments.size();
+                r.set(0, new ClosureType(r.get(0), paramNum));
+            });
+
+        R.rule()
+            .using(node.attr("funType"))
+            .by( r -> {
+               FunType expected = (FunType) r.get(0);
+               if (expected.paramTypes.length!=node.arguments.size()) {
+                   r.errorFor(format("wrong number of arguments, expected %d but got %d",
+                       expected.paramTypes.length, node.arguments.size()),
+                       node);
+               }
+               int numArgs = Math.min(expected.paramTypes.length,node.arguments.size());
+                Attribute[] attributes = node.arguments.stream().limit(numArgs).map(it -> it.attr("type")).toArray(Attribute[]::new);
+               R.rule(attributes)
+                   .using()
+                   .by( rr -> {
+                       for (int j = 0; j < numArgs; j++) {
+                           rr.set(j,expected.paramTypes[j]);
+                       }
+                       R.rule(node,"value")
+                           .by(rrr -> rrr.set(0,expected.returnType));
+                   });
+
+            });
     }
 
     // endregion
@@ -651,6 +732,25 @@ public final class SemanticAnalysis
 
     // ---------------------------------------------------------------------------------------------
 
+    private void closureType (ClosureTypeNode node) {
+        Attribute[] dependencies = new Attribute[node.paramTypes.size() + 1];
+        dependencies[0] = node.returnType.attr("value");
+        forEachIndexed(node.paramTypes, (i, param) ->
+            dependencies[i + 1] = param.attr("value"));
+
+        R.rule(node, "value")
+            .using(dependencies)
+            .by (r -> {
+                Type[] paramTypes = new Type[node.paramTypes.size()];
+                for (int i = 0; i < paramTypes.length; ++i)
+                    paramTypes[i] = r.get(i + 1);
+                r.set(0, new FunType(r.get(0), paramTypes));
+            });
+
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
     private static boolean isTypeDecl (DeclarationNode decl)
     {
         if (decl instanceof StructDeclarationNode) return true;
@@ -667,6 +767,9 @@ public final class SemanticAnalysis
      */
     private static boolean isAssignableTo (Type a, Type b)
     {
+        if (a instanceof VoidType && b instanceof VoidType)
+            return true;
+
         if (a instanceof VoidType || b instanceof VoidType)
             return false;
 
@@ -677,7 +780,20 @@ public final class SemanticAnalysis
             return b instanceof ArrayType
                 && isAssignableTo(((ArrayType)a).componentType, ((ArrayType)b).componentType);
 
+        if (a instanceof ClosureType && b instanceof FunType) {
+            return assignClosure((ClosureType) a,(FunType)b);
+        }
+
         return a instanceof NullType && b.isReference() || a.equals(b);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private static boolean assignClosure(ClosureType closure, FunType func) {
+        if (func.paramTypes.length!=closure.paramNum) {
+            return false;
+        }
+        return isAssignableTo(closure.returnType,func.returnType);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -832,6 +948,11 @@ public final class SemanticAnalysis
         R.set(node, "declared", new StructType(node));
     }
 
+    private void parameterClosure (ParameterClosureNode node) {
+        //R.set(node, "scope", scope);
+        scope.declare(node.name,node);
+    }
+
     // endregion
     // =============================================================================================
     // region [Other Statements]
@@ -874,32 +995,63 @@ public final class SemanticAnalysis
     {
         R.set(node, "returns", true);
 
-        FunDeclarationNode function = currentFunction();
-        if (function == null) // top-level return
+        SighNode maybeFun = currentFunctionOrClosure();
+        if (maybeFun == null) // top-level return
             return;
-
-        if (node.expression == null)
-            R.rule()
-            .using(function.returnType, "value")
-            .by(r -> {
-               Type returnType = r.get(0);
-               if (!(returnType instanceof VoidType))
-                   r.error("Return without value in a function with a return type.", node);
-            });
-        else
-            R.rule()
-            .using(function.returnType.attr("value"), node.expression.attr("type"))
-            .by(r -> {
-                Type formal = r.get(0);
-                Type actual = r.get(1);
-                if (formal instanceof VoidType)
-                    r.error("Return with value in a Void function.", node);
-                else if (!isAssignableTo(actual, formal)) {
-                    r.errorFor(format(
-                        "Incompatible return type, expected %s but got %s", formal, actual),
-                        node.expression);
+        if (maybeFun instanceof FunDeclarationNode) {
+            FunDeclarationNode function = (FunDeclarationNode) maybeFun;
+            if (node.expression == null)
+                R.rule()
+                    .using(function.returnType, "value")
+                    .by(r -> {
+                        Type returnType = r.get(0);
+                        if (!(returnType instanceof VoidType))
+                            r.error("Return without value in a function with a return type.", node);
+                    });
+            else
+                if (node.expression instanceof ClosureExpressionNode) {
+                    ClosureExpressionNode closure = (ClosureExpressionNode) node.expression;
+                    R.rule(closure,"funType")
+                        .using(function.returnType.attr("value"))
+                        .by(r -> {
+                            Type formal = r.get(0);
+                            if (formal instanceof FunType) {
+                                FunType fun = (FunType) formal;
+                                r.set(0, fun);
+                            }
+                        });
                 }
-            });
+                R.rule()
+                    .using(function.returnType.attr("value"), node.expression.attr("type"))
+                    .by(r -> {
+                        Type formal = r.get(0);
+                        Type actual = r.get(1);
+                        if (formal instanceof VoidType)
+                            r.error("Return with value in a Void function.", node);
+                        else if (!isAssignableTo(actual, formal)) {
+                            r.errorFor(format(
+                                "Incompatible return type, expected %s but got %s", formal, actual),
+                                node.expression);
+                        }
+                    });
+        }
+        else if (maybeFun instanceof ClosureExpressionNode) {
+            ClosureExpressionNode closure = (ClosureExpressionNode) maybeFun;
+            R.rule()
+                .using(closure.attr("funType"),node.expression.attr("type"))
+                .by(r -> {
+                    FunType fun = r.get(0);
+                    Type formal = fun.returnType;
+                    Type actual = r.get(1);
+                    if (formal instanceof VoidType)
+                        r.error("Return with value in a Void function.", node);
+                    else if (!isAssignableTo(actual, formal)) {
+                        r.errorFor(format(
+                            "Incompatible return type, expected %s but got %s", formal, actual),
+                            node.expression);
+                    }
+                });
+        }
     }
 
     private void switchStmt (SwitchNode node)
@@ -975,13 +1127,28 @@ public final class SemanticAnalysis
 
     // ---------------------------------------------------------------------------------------------
 
-    private FunDeclarationNode currentFunction()
+    private SighNode currentClosure() {
+        Scope scope = this.scope;
+        while (scope != null) {
+            SighNode node = scope.node;
+            if (node instanceof ClosureExpressionNode)
+                return node;
+            scope = scope.parent;
+        }
+        return null;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private SighNode currentFunctionOrClosure()
     {
         Scope scope = this.scope;
         while (scope != null) {
             SighNode node = scope.node;
             if (node instanceof FunDeclarationNode)
-                return (FunDeclarationNode) node;
+                return node;
+            if (node instanceof ClosureExpressionNode)
+                return node;
             scope = scope.parent;
         }
         return null;
@@ -992,7 +1159,8 @@ public final class SemanticAnalysis
     private boolean isReturnContainer (SighNode node) {
         return node instanceof BlockNode
             || node instanceof IfNode
-            || node instanceof ReturnNode;
+            || node instanceof ReturnNode
+            || node instanceof ClosureExpressionNode;
     }
 
     // ---------------------------------------------------------------------------------------------

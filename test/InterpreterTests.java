@@ -404,5 +404,79 @@ public final class InterpreterTests extends TestFixture {
 
     // ---------------------------------------------------------------------------------------------
 
+    @Test public void testClosures() {
+        check("fun add ( num : Int ) : (Int, Int) -> Int {\n" +
+            "    var base : Int = 42\n" +
+            "    return { (x,y) in\n" +
+            "        x = x + y\n" +
+            "        return x\n" +
+            "    }\n" +
+            "}\n" +
+            "\n" +
+            "var adder1 : (Int,Int) -> Int = add(1)\n" +
+            "return adder1(2,3)",5L);
+
+        check("fun first ( array : Int [], closure : ( Int ) -> Bool ): Int {\n" +
+            "    var i : Int = 0\n" +
+            "    while i < array . length {\n" +
+            "        var elem : Int = array [i]\n" +
+            "        if closure ( elem )\n" +
+            "            return elem\n" +
+            "        i = i + 1\n" +
+            "     }\n" +
+            "     return i\n" +
+            "}\n" +
+            "\n" +
+            "var intArray : Int [] = [2 ,6 ,4 ,3]\n" +
+            "var firstElemGreaterThan5 : Int = first ( intArray ,{ x in\n" +
+            "     if x > 5\n" +
+            "     return true\n" +
+            "     else\n" +
+            "     return false })\n" +
+            "return firstElemGreaterThan5",6L);
+
+        check("fun first ( array : Int [], closure : ( Int ) -> Bool ): Int {\n" +
+            "    var i : Int = 0\n" +
+            "    while i < array . length {\n" +
+            "        var elem : Int = array [i]\n" +
+            "        if closure ( elem )\n" +
+            "            return elem\n" +
+            "        i = i + 1\n" +
+            "     }\n" +
+            "     return i\n" +
+            "}\n" +
+            "\n" +
+            "var intArray : Int [] = [2 ,-1,4,9,6 ,4 ,3]\n" +
+            "var firstElemGreaterThan5 : Int = first ( intArray ,{ x in\n" +
+            "     if x > 5\n" +
+            "     return true\n" +
+            "     else\n" +
+            "     return false })\n" +
+            "return firstElemGreaterThan5",9L);
+
+        check("fun first ( array : Int [], closure : ( Int ) -> Bool ): Int {\n" +
+            "    var i : Int = 0\n" +
+            "    while i < array . length {\n" +
+            "        var elem : Int = array [i]\n" +
+            "        if closure ( elem )\n" +
+            "            return elem\n" +
+            "        i = i + 1\n" +
+            "     }\n" +
+            "     return i\n" +
+            "}\n" +
+            "\n" +
+            "var intArray : Int [] = [2 ,1 ,4 ,3]\n" +
+            "var firstElemGreaterThan5 : Int = first ( intArray ,{ x in\n" +
+            "     if x > 5\n" +
+            "     return true\n" +
+            "     else\n" +
+            "     return false })\n" +
+            "return firstElemGreaterThan5",4L);
+
+
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
     // NOTE(norswap): Not incredibly complete, but should cover the basics.
 }

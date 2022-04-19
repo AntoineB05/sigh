@@ -72,6 +72,7 @@ public final class Interpreter
         visitor.register(BinaryExpressionNode.class,     this::binaryExpression);
         visitor.register(BinaryExpressionTypeCheckNode.class, this::binaryExpressionTypeCheck);
         visitor.register(AssignmentNode.class,           this::assignment);
+        visitor.register(ClosureExpressionNode.class,    this::closureExpression);
 
         // statement groups & declarations
         visitor.register(RootNode.class,                 this::root);
@@ -304,6 +305,12 @@ public final class Interpreter
 
     // ---------------------------------------------------------------------------------------------
 
+    private Object closureExpression (ClosureExpressionNode node) {
+        return node;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
     private int getIndex (ExpressionNode node)
     {
         long index = get(node);
@@ -419,6 +426,25 @@ public final class Interpreter
         if (decl instanceof Constructor)
             return buildStruct(((Constructor) decl).declaration, args);
 
+        if (decl instanceof ClosureExpressionNode) {
+            ScopeStorage oldStorage = storage;
+            Scope scope = reactor.get(decl, "scope");
+            storage = new ScopeStorage(scope, storage);
+
+            ClosureExpressionNode closure = (ClosureExpressionNode) decl;
+            coIterate(args, closure.arguments,
+                (arg, param) -> storage.set(scope, param.name, arg));
+
+            try {
+                get(closure.block);
+            } catch (Return r) {
+                return r.value;
+            } finally {
+                storage = oldStorage;
+            }
+            return null;
+        }
+
         ScopeStorage oldStorage = storage;
         Scope scope = reactor.get(decl, "scope");
         storage = new ScopeStorage(scope, storage);
@@ -501,15 +527,14 @@ public final class Interpreter
     {
         Scope scope = reactor.get(node, "scope");
         DeclarationNode decl = reactor.get(node, "decl");
-
         if (decl instanceof VarDeclarationNode
         || decl instanceof ParameterNode
+        || decl instanceof ParameterClosureNode
         || decl instanceof SyntheticDeclarationNode
                 && ((SyntheticDeclarationNode) decl).kind() == DeclarationKind.VARIABLE)
             return scope == rootScope
                 ? rootStorage.get(scope, node.name)
                 : storage.get(scope, node.name);
-
         return decl; // structure or function
     }
 

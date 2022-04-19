@@ -429,4 +429,57 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
     }
 
     // ---------------------------------------------------------------------------------------------
+
+    @Test public void testClosures() {
+        successInput("fun f() : (Int, Int[]) -> Int {" +
+            "return { (index, array) in " +
+            "return array[index]}}" +
+            "var indexer : (Int, Int[]) -> Int = f()" +
+            "indexer(1,[1,2,3,4,5])");
+
+        successInput("fun f(x : Float) : (String) -> Void {" +
+            "return { (str) in " +
+            "print(str)" +
+            "}}" +
+            "var printer : (String) -> Void = f(3.2)" +
+            "printer(\"Hello\")");
+
+        successInput("fun f(x : Float, closure : (Float) -> Bool) : Float {" +
+            "if (closure(x)) " +
+            "return x " +
+            "else " +
+            "return 2" +
+            "}" +
+            "var result : Float = f(3,{ (x) in " +
+            "return x>3.6" +
+            "})");
+
+        failureInputWith("fun add ( num : Int ) : (Int, Int) -> Int {"+
+            "var base : Int = 42 "+
+            "return { (x) in " +
+            "return x}}","wrong number of arguments, expected 2 but got 1",
+            "Incompatible return type, expected (Int,Int) -> Int but got (1 parameters) -> Int"
+        );
+
+        failureInputWith("fun add ( num : Int ) : (Int, String) -> Int {"+
+            "var base : Int = 42 "+
+            "return { (x,y) in " +
+            "return y}}","Incompatible return type, expected Int but got String");
+
+        failureInputWith("fun f(x : Float) : (String) -> Void {" +
+            "return { (str) in " +
+            "print(str)" +
+            "}}" +
+            "var printer : (String) -> Void = f(3.2)" +
+            "printer(3.6)","incompatible argument provided for argument 0: expected String but got Float");
+
+        failureInputWith("fun f(x : Float) : (String) -> Void {" +
+            "return { (str) in " +
+            "print(str)" +
+            "}}" +
+            "var printer : (String) -> Void = f(3.2)" +
+            "printer(\"Hello\",3.2)","wrong number of arguments, expected 1 but got 2");
+    }
+
+    // ---------------------------------------------------------------------------------------------
 }

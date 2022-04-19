@@ -3,6 +3,7 @@ package norswap.sigh;
 import norswap.autumn.Grammar;
 import norswap.sigh.ast.*;
 import norswap.sigh.types.AnyType;
+import norswap.sigh.types.FunType;
 
 import static norswap.sigh.ast.UnaryOperator.NOT;
 
@@ -53,6 +54,7 @@ public class SighGrammar extends Grammar
     public rule DOLLAR          = word("$");
     public rule COMMA           = word(",");
     public rule UNDERSCORE      = word("_");
+    public rule ARROW           = word("->");
 
     public rule _var            = reserved("var");
     public rule _fun            = reserved("fun");
@@ -65,6 +67,7 @@ public class SighGrammar extends Grammar
     public rule _case           = reserved("case");
     public rule _default        = reserved("default");
     public rule _is             = reserved("is");
+    public rule _in             = reserved("in");
 
     public rule number =
         seq(opt('-'), choice('0', digit.at_least(1)));
@@ -121,7 +124,7 @@ public class SighGrammar extends Grammar
         .push($ -> new ParenthesizedNode($.span(), $.$[0])));
 
     public rule expressions = lazy(() ->
-        this.expression.sep(0, COMMA)
+        choice(this.expression,this.closure_block).sep(0, COMMA)
         .as_list(ExpressionNode.class));
 
     public rule array =
@@ -243,8 +246,9 @@ public class SighGrammar extends Grammar
         .suffix(seq(LSQUARE, RSQUARE),
             $ -> new ArrayTypeNode($.span(), $.$[0]));
 
-    public rule type =
-        seq(array_type);
+    public rule type = lazy(() -> choice(
+        this.closure_type,
+        this.array_type));
 
     public rule statement = lazy(() -> choice(
         this.block,
@@ -288,6 +292,20 @@ public class SighGrammar extends Grammar
         seq(_var, identifier, COLON, type)
         .push($ -> new FieldDeclarationNode($.span(), $.$[0], $.$[1]));
 
+    public rule closure_arg = lazy(() ->
+        seq(this.identifier)
+        .push($ -> new ParameterClosureNode($.span(),$.$[0])));
+
+    public rule closure_mult_args =
+        seq(LPAREN,closure_arg.sep(0,COMMA).as_list(ParameterClosureNode.class),RPAREN);
+
+    public rule closure_args =
+        seq(choice(closure_mult_args,closure_arg.as_list(ParameterClosureNode.class)),_in);
+
+    public rule closure_block =
+        seq(LBRACE,closure_args.or_push_null(),statements,RBRACE)
+        .push($ -> new ClosureExpressionNode($.span(),$.$[0],new BlockNode($.span(),$.$[1])));
+
     public rule struct_body =
         seq(LBRACE, field_decl.at_least(0).as_list(DeclarationNode.class), RBRACE);
 
@@ -304,7 +322,7 @@ public class SighGrammar extends Grammar
         .push($ -> new WhileNode($.span(), $.$[0], $.$[1]));
 
     public rule return_stmt =
-        seq(_return, expression.or_push_null())
+        seq(_return, choice(expression,closure_block).or_push_null())
         .push($ -> new ReturnNode($.span(), $.$[0]));
 
     public rule case_stmt =
@@ -322,6 +340,14 @@ public class SighGrammar extends Grammar
     public rule switch_stmt =
         seq(_switch,LPAREN,basic_expression,RPAREN,LBRACE,case_stmts,RBRACE)
         .push($ -> new SwitchNode($.span(),$.$[0],$.$[1]));
+
+    public rule parameters_type =
+        type.sep(0,COMMA)
+            .as_list(SimpleTypeNode.class);
+
+    public rule closure_type =
+        seq(LPAREN, parameters_type, RPAREN, ARROW, type)
+        .push($ -> new ClosureTypeNode($.span(),$.$[0],$.$[1]));
 
     public rule root =
         seq(ws, statement.at_least(1))

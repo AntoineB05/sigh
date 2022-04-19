@@ -168,4 +168,31 @@ public class GrammarTests extends AutumnTestFixture {
     }
 
     // ---------------------------------------------------------------------------------------------
+
+    @Test public void testClosures(){
+        rule = grammar.statement;
+
+        successExpect("fun f() : (Int) -> Float { return {(x) in return x/1.5}}",new FunDeclarationNode(null,"f",asList(),
+            new ClosureTypeNode(null,asList(new SimpleTypeNode(null,"Int")),new SimpleTypeNode(null,"Float")),
+            new BlockNode(null,asList(new ReturnNode(null,new ClosureExpressionNode(null,asList(new ParameterClosureNode(null,"x")),
+                new BlockNode(null,asList(new ReturnNode(null,new BinaryExpressionNode(null,
+                    new ReferenceNode(null,"x"),DIVIDE,floatlit(1.5)))))))))));
+
+        successExpect("fun f(closure : ()-> Int) : Int { return closure()}",new FunDeclarationNode(null,"f",asList(
+            new ParameterNode(null,"closure",new ClosureTypeNode(null,asList(),new SimpleTypeNode(null,"Int")))),
+            new SimpleTypeNode(null,"Int"), new BlockNode(null,asList(new ReturnNode(null,new FunCallNode(null,
+                new ReferenceNode(null,"closure"),asList()))))
+        ));
+
+        successExpect("fun f() : (Int, String) -> Void { return {(x,y) in print(y)}}",new FunDeclarationNode(null,"f",asList(),
+            new ClosureTypeNode(null,asList(new SimpleTypeNode(null,"Int"),new SimpleTypeNode(null,"String")),
+                new SimpleTypeNode(null,"Void")),
+            new BlockNode(null,asList(new ReturnNode(null,new ClosureExpressionNode(null,asList(new ParameterClosureNode(null,"x"),
+                new ParameterClosureNode(null,"y")),
+                new BlockNode(null,asList(new ExpressionStatementNode(null,new FunCallNode(null,new ReferenceNode(null,"print"),
+                    asList(new ReferenceNode(null,"y"))))))))))));
+
+    }
+
+    // ---------------------------------------------------------------------------------------------
 }
