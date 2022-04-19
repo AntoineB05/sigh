@@ -128,6 +128,7 @@ public final class SemanticAnalysis
 
         // types
         walker.register(SimpleTypeNode.class,           PRE_VISIT,  analysis::simpleType);
+        walker.register(OptTypeNode.class,           PRE_VISIT,  analysis::optType);
         walker.register(ArrayTypeNode.class,            PRE_VISIT,  analysis::arrayType);
 
         // declarations & scopes
@@ -149,8 +150,9 @@ public final class SemanticAnalysis
         walker.register(WhileNode.class,                PRE_VISIT,  analysis::whileStmt);
         walker.register(ReturnNode.class,               PRE_VISIT,  analysis::returnStmt);
         walker.register(SwitchNode.class,               PRE_VISIT,  analysis::switchStmt);
-        walker.register(CaseNode.class,               PRE_VISIT,  node -> {});
-        walker.register(DefaultNode.class,               PRE_VISIT,  node -> {});
+        walker.register(CaseNode.class,                 PRE_VISIT,  node -> {});
+        walker.register(DefaultNode.class,              PRE_VISIT,  node -> {});
+        walker.register(IfUnwrapNode.class,             PRE_VISIT,analysis::ifUnwrap);
         walker.registerFallback(POST_VISIT, node -> {});
 
         return walker;
@@ -193,40 +195,65 @@ public final class SemanticAnalysis
         // functions or types. By looking up now, we can report looked up variables later
         // as being used before being defined.
         DeclarationContext maybeCtx = scope.lookup(node.name);
+        if(node.unwrap){    // try to unwrap variable
+            if (maybeCtx != null) {
+                R.set(node, "decl", maybeCtx.declaration);
+                R.set(node, "scope", maybeCtx.scope);
 
-        if (maybeCtx != null) {
-            R.set(node, "decl",  maybeCtx.declaration);
-            R.set(node, "scope", maybeCtx.scope);
-
-            R.rule(node, "type")
-            .using(maybeCtx.declaration, "type")
-            .by(Rule::copyFirst);
-            return;
-        }
-
-        // Re-lookup after the scopes have been built.
-        R.rule(node.attr("decl"), node.attr("scope"))
-        .by(r -> {
-            DeclarationContext ctx = scope.lookup(node.name);
-            DeclarationNode decl = ctx == null ? null : ctx.declaration;
-
-            if (ctx == null) {
-                r.errorFor("Could not resolve: " + node.name,
-                    node, node.attr("decl"), node.attr("scope"), node.attr("type"));
+                R.rule()
+                    .using(maybeCtx.declaration, "type")
+                    .by(r -> {
+                        Type type = r.get(0);
+                        if(!(type instanceof OptType)){
+                            r.error("impossible to unwrap non optional variable (got "+ type.name()+")", node);
+                            R.rule(node,"type")
+                            .using()
+                            .by(rr -> rr.set(0,type));
+                        }else{
+                            VarDeclarationNode varDeclarationNode = (VarDeclarationNode) maybeCtx.declaration;
+                            OptTypeNode optTypeNode = (OptTypeNode) varDeclarationNode.type;
+                            R.rule(node,"type")
+                            .using(optTypeNode.contentType,"value")
+                            .by(Rule::copyFirst);
+                        }
+                    });
+                return;
             }
-            else {
-                r.set(node, "scope", ctx.scope);
-                r.set(node, "decl", decl);
+            // TODO Re-lookup
+        }else {
+            if (maybeCtx != null) {
+                R.set(node, "decl", maybeCtx.declaration);
+                R.set(node, "scope", maybeCtx.scope);
 
-                if (decl instanceof VarDeclarationNode)
-                    r.errorFor("Variable used before declaration: " + node.name,
-                        node, node.attr("type"));
-                else
-                    R.rule(node, "type")
-                    .using(decl, "type")
+                R.rule(node, "type")
+                    .using(maybeCtx.declaration, "type")
                     .by(Rule::copyFirst);
+                return;
             }
-        });
+
+            // Re-lookup after the scopes have been built.
+            R.rule(node.attr("decl"), node.attr("scope"))
+                .by(r -> {
+                    DeclarationContext ctx = scope.lookup(node.name);
+                    DeclarationNode decl = ctx == null ? null : ctx.declaration;
+
+                    if (ctx == null) {
+                        r.errorFor("Could not resolve: " + node.name,
+                            node, node.attr("decl"), node.attr("scope"), node.attr("type"));
+                    } else {
+                        r.set(node, "scope", ctx.scope);
+                        r.set(node, "decl", decl);
+
+                        if (decl instanceof VarDeclarationNode)
+                            r.errorFor("Variable used before declaration: " + node.name,
+                                node, node.attr("type"));
+                        else
+                            R.rule(node, "type")
+                                .using(decl, "type")
+                                .by(Rule::copyFirst);
+                    }
+                });
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -583,22 +610,36 @@ public final class SemanticAnalysis
 
     private void assignment (AssignmentNode node)
     {
-        R.rule(node, "type")
+        R.rule(node,"type")
         .using(node.left.attr("type"), node.right.attr("type"))
         .by(r -> {
             Type left  = r.get(0);
             Type right = r.get(1);
-
-            r.set(0, r.get(0)); // the type of the assignment is the left-side type
-
-            if (node.left instanceof ReferenceNode
-            ||  node.left instanceof FieldAccessNode
-            ||  node.left instanceof ArrayAccessNode) {
-                if (!isAssignableTo(right, left))
-                    r.errorFor("Trying to assign a value to a non-compatible lvalue.", node);
+            r.set(0,r.get(0)); // the type of the assignment is the left-side type
+            if (left instanceof OptType){ // the left variable is an optional
+                R.rule()
+                .using(node.left.attr("decl"))
+                .by(rr ->{
+                    VarDeclarationNode varDeclarationNode = rr.get(0);
+                    OptTypeNode optTypeNode = (OptTypeNode) varDeclarationNode.type;
+                    R.rule()
+                    .using(optTypeNode.contentType.attr("value"))
+                    .by(rrr -> {
+                        Type optContains = rrr.get(0);
+                        // type of assigment is finally the type contains in optional
+                        if (!isAssignableTo(right, optContains))
+                            rrr.errorFor("Trying to assign a value to a non-compatible lvalue (expected: "+ optContains +" but got "+ right.toString(), node);
+                    });
+                });
+            }else {
+                if (node.left instanceof ReferenceNode
+                    || node.left instanceof FieldAccessNode
+                    || node.left instanceof ArrayAccessNode) {
+                    if (!isAssignableTo(right, left))
+                        r.errorFor("Trying to assign a value to a non-compatible lvalue.", node);
+                } else
+                    r.errorFor("Trying to assign to an non-lvalue expression.", node.left);
             }
-            else
-                r.errorFor("Trying to assign to an non-lvalue expression.", node.left);
         });
     }
 
@@ -638,6 +679,13 @@ public final class SemanticAnalysis
                 .using(decl, "declared")
                 .by(Rule::copyFirst);
         });
+    }
+
+    // ---------------------------------------------------------------------------------------------
+
+    private void optType (OptTypeNode node)
+    {
+        R.set(node,"value",OptType.INSTANCE);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -755,19 +803,51 @@ public final class SemanticAnalysis
         R.rule(node, "type")
         .using(node.type, "value")
         .by(Rule::copyFirst);
-
-        R.rule()
-        .using(node.type.attr("value"), node.initializer.attr("type"))
-        .by(r -> {
-            Type expected = r.get(0);
-            Type actual = r.get(1);
-
-            if (!isAssignableTo(actual, expected))
-                r.error(format(
-                    "incompatible initializer type provided for variable `%s`: expected %s but got %s",
-                    node.name, expected, actual),
-                    node.initializer);
-        });
+        if(node.initializer != null) { // the variable declaration has an initializer
+            R.rule()
+            .using(node.type.attr("value"), node.initializer.attr("type"))
+            .by(r -> {
+                Type expected = r.get(0);
+                Type actual = r.get(1);
+                if (expected instanceof OptType) { // declare an optional
+                    OptTypeNode optTypeNode = (OptTypeNode) node.type;
+                    R.rule()
+                    .using(optTypeNode.contentType.attr("value"))
+                    .by(rr -> {
+                        Type optContains = rr.get(0);
+                        if(actual instanceof OptType){ // the initializer is an optional
+                            R.rule()
+                            .using(node.initializer.attr("decl"))
+                            .by(rrr -> {
+                                VarDeclarationNode varDeclarationNodeInit = rrr.get(0);
+                                OptTypeNode optTypeNodeInit = (OptTypeNode) varDeclarationNodeInit.type;
+                                R.rule() // check if the contains type of the two optionals match
+                                .using(optTypeNodeInit.contentType.attr("value"))
+                                .by(rrrr -> {
+                                    Type optContainsInit = rrrr.get(0);
+                                    if (!isAssignableTo(optContainsInit, optContains))
+                                        rr.errorFor(format("incompatible initializer type provided for variable `%s`: expected %s(%s) but got %s(%s)",
+                                                node.name, expected,optContains, actual,optContainsInit),
+                                            node.initializer);
+                                });
+                            });
+                        }
+                        //the initializer isn't an optional
+                        else if (!isAssignableTo(actual, optContains))//check if the type of the initializer match with the type content in the optional
+                            rr.errorFor(format("incompatible initializer type provided for variable `%s`: expected %s but got %s",
+                                node.name, optContains, actual),
+                                node.initializer);
+                    });
+                }
+                else {
+                   if (!isAssignableTo(actual, expected))
+                        r.error(format(
+                            "incompatible initializer type provided for variable `%s`: expected %s but got %s",
+                            node.name, expected, actual),
+                        node.initializer);
+                }
+            });
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -969,8 +1049,27 @@ public final class SemanticAnalysis
         });
     }
 
+    private void ifUnwrap (IfUnwrapNode node){
+        R.rule()//node.varDecl,"scope") // rule to declare the unwrapped variable in the scope of the trueStatement
+        .using(node.trueStatement.attr("scope"),node.varDecl.attr("scope"))
+        .by(r -> {
+            Scope Ifscope = r.get(0);
+            Ifscope.declare(node.varDecl.name,node.varDecl);
+            //r.set(0,Ifscope);
+        });
+
+        R.rule() // rule to check if the right variable is an optional
+        .using(node.varDecl.initializer,"decl")
+        .by(r -> {
+            VarDeclarationNode varDeclarationNode = r.get(0);
+            if (!(varDeclarationNode.type instanceof OptTypeNode)) {
+                r.error(format("Need optional in this if statement condition to be unwrap but got %s", varDeclarationNode.type.contents()), node);
+            }
+        });
 
 
+
+    }
 
 
     // ---------------------------------------------------------------------------------------------

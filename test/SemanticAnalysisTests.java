@@ -429,4 +429,64 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
     }
 
     // ---------------------------------------------------------------------------------------------
+
+    @Test public void testDeclOptional(){
+        successInput("var i:Int? = 2");
+        successInput("var i:Int?");
+
+        failureInputWith("var i:Int? = \"abc\"","incompatible initializer type provided for variable `i`: expected Int but got String");
+
+    }
+
+    @Test public void testAssignToOptional(){
+        successInput("var i:Int? = 2"+
+            "var sum: Int = 0"+
+            "i = sum + 3");
+        successInput("var test:String?"+
+            "test = \"abc\"");
+
+        failureInputWith("var test:String?"+
+            "test = 3","Trying to assign a value to a non-compatible lvalue (expected: String but got Int");
+    }
+
+    @Test public void testAssignOptionalToOptional(){
+        successInput("var i:Int? = 2"+
+            "var sum: Int? = i\n"+
+            "i = sum! + 3");
+        successInput("var test:String?"+
+            "var test2 : String? = test\n"+
+            "print(test2!)");
+
+        failureInputWith("var test:String?"+
+            "var i: Int? = test","incompatible initializer type provided for variable `i`: expected Optional(Int) but got Optional(String)");
+    }
+
+    @Test public void testUnwrapOptionalWithBang(){
+        successInput("var i:Int? = 2"+
+            "var sum: Int = 0"+
+            "sum = sum + i!");
+
+        failureInputWith("var test:String?"+
+            "test = \"zyx\""+
+            "var i: Int = 4"+
+            "i = test","Trying to assign a value to a non-compatible lvalue.");
+
+        failureInputWith("var test: String?"+
+            "test = \"zyx\""+
+            "var i:Int = 4"+
+            "i = test!","Trying to assign a value to a non-compatible lvalue.");
+    }
+
+    @Test public void testUnwrapOptionalWithIf(){
+        successInput("var i:Int? = 2"+
+            "if var iUnwrap:Int = i{}");
+
+        failureInputWith("var i:Int = 2"+
+            "if var iUnwrap:Int = i{}","impossible to unwrap non optional variable (got Int)","Need optional in this if statement condition to be unwrap but got Int");
+
+        successInput("var j: Int\n" +
+            "var i:Int? = 2"+
+            "if var iUnwrap:Int = i{j = iUnwrap}");
+
+    }
 }

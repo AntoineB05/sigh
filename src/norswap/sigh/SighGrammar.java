@@ -53,6 +53,7 @@ public class SighGrammar extends Grammar
     public rule DOLLAR          = word("$");
     public rule COMMA           = word(",");
     public rule UNDERSCORE      = word("_");
+    public rule INTERROGATION   = word("?");
 
     public rule _var            = reserved("var");
     public rule _fun            = reserved("fun");
@@ -81,8 +82,8 @@ public class SighGrammar extends Grammar
 
     public rule bool =
         choice(
-            word("true").push($ -> new ReferenceNode($.span(),"true")),
-            word("false").push($ -> new ReferenceNode($.span(),"false"))
+            word("true").push($ -> new ReferenceNode($.span(),"true",false)),
+            word("false").push($ -> new ReferenceNode($.span(),"false",false))
         );
 
     public rule string_char = choice(
@@ -101,12 +102,24 @@ public class SighGrammar extends Grammar
     public rule identifier =
         identifier(seq(choice(alpha, '_'), id_part.at_least(0)))
         .push($ -> $.str());
+
+    public rule identifier_without_word =
+        seq(any_reserved_word.not(),choice(alpha, '_'), id_part.at_least(0))
+            .push($ -> $.str());
     
     // ==== SYNTACTIC =========================================================
     
     public rule reference =
         identifier
-        .push($ -> new ReferenceNode($.span(), $.$[0]));
+        .push($ -> new ReferenceNode($.span(), $.$[0],false));
+
+    public rule reference_ifUnwrap =
+        identifier
+            .push($ -> new ReferenceNode($.span(), $.$[0],true));
+
+    public rule opt_reference =
+        seq(identifier_without_word,BANG)
+            .push($ -> new ReferenceNode($.span(), $.$[0],true));
 
     public rule constructor =
         seq(DOLLAR, reference)
@@ -115,6 +128,10 @@ public class SighGrammar extends Grammar
     public rule simple_type =
         identifier
         .push($ -> new SimpleTypeNode($.span(), $.$[0]));
+
+    public rule optional_type =
+        seq(identifier_without_word,INTERROGATION)
+            .push($ -> new OptTypeNode($.span(), $.$[0]));
 
     public rule paren_expression = lazy(() ->
         seq(LPAREN, this.expression, RPAREN)
@@ -135,6 +152,7 @@ public class SighGrammar extends Grammar
 
     public rule basic_expression = choice(
         constructor,
+        opt_reference,
         reference,
         floating,
         integer,
@@ -244,13 +262,14 @@ public class SighGrammar extends Grammar
             $ -> new ArrayTypeNode($.span(), $.$[0]));
 
     public rule type =
-        seq(array_type);
+        choice(optional_type,seq(array_type));
 
     public rule statement = lazy(() -> choice(
         this.block,
         this.var_decl,
         this.fun_decl,
         this.struct_decl,
+        this.if_unwrap,
         this.if_stmt,
         this.while_stmt,
         this.return_stmt,
@@ -266,8 +285,12 @@ public class SighGrammar extends Grammar
         .push($ -> new BlockNode($.span(), $.$[0]));
 
     public rule var_decl =
-        seq(_var, identifier, COLON, type, EQUALS, expression)
-        .push($ -> new VarDeclarationNode($.span(), $.$[0], $.$[1], $.$[2]));
+        seq(_var, identifier, COLON, type, seq(EQUALS, expression).or_push_null())
+        .push($ -> new VarDeclarationNode($.span(), $.$[0], $.$[1], $.$[2],false));
+
+    public rule var_decl_ifUnwrap =
+        seq(_var, identifier, COLON, type,EQUALS, reference_ifUnwrap)
+            .push($ -> new VarDeclarationNode($.span(), $.$[0], $.$[1], $.$[2],true));
 
     public rule parameter =
         seq(identifier, COLON, type)
@@ -312,8 +335,8 @@ public class SighGrammar extends Grammar
         .push($ -> new CaseNode($.span(),$.$[0],$.$[1]));
 
     public rule default_stmt =
-            seq(_default,block)
-                    .push($ -> new DefaultNode($.span(),$.$[0]));
+        seq(_default,block)
+        .push($ -> new DefaultNode($.span(),$.$[0]));
 
     public rule case_stmts =
         choice(case_stmt,default_stmt,statement).at_least(0)
@@ -322,6 +345,10 @@ public class SighGrammar extends Grammar
     public rule switch_stmt =
         seq(_switch,LPAREN,basic_expression,RPAREN,LBRACE,case_stmts,RBRACE)
         .push($ -> new SwitchNode($.span(),$.$[0],$.$[1]));
+
+    public rule if_unwrap =
+        seq(_if,var_decl_ifUnwrap,statement,seq(_else, statement).or_push_null())
+        .push($ -> new IfUnwrapNode($.span(),$.$[0],$.$[1],$.$[2]));
 
     public rule root =
         seq(ws, statement.at_least(1))

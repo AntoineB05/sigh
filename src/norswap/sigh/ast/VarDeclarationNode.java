@@ -8,12 +8,18 @@ public final class VarDeclarationNode extends DeclarationNode
     public final String name;
     public final TypeNode type;
     public final ExpressionNode initializer;
+    public final Boolean ifUnwrap;
 
-    public VarDeclarationNode (Span span, Object name, Object type, Object initializer) {
+    public VarDeclarationNode (Span span, Object name, Object type, Object initializer, Object ifUnwrap) {
         super(span);
         this.name = Util.cast(name, String.class);
         this.type = Util.cast(type, TypeNode.class);
-        this.initializer = Util.cast(initializer, ExpressionNode.class);
+        this.ifUnwrap = Util.cast(ifUnwrap, Boolean.class);
+        if(initializer == null){
+            this.initializer = null;
+        }else {
+            this.initializer = Util.cast(initializer, ExpressionNode.class);
+        }
     }
 
     @Override public String name () {

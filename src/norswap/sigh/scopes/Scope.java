@@ -41,6 +41,13 @@ public class Scope
         declarations.put(identifier, node);
     }
 
+    /**
+     * Delete a declaration from this scope.
+     */
+    public void undeclare (String identifier) {
+        declarations.remove(identifier);
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     /**
