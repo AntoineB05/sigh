@@ -1,6 +1,7 @@
 package norswap.sigh.interpreter;
 
 import norswap.sigh.ast.*;
+import norswap.sigh.scopes.DeclarationContext;
 import norswap.sigh.scopes.DeclarationKind;
 import norswap.sigh.scopes.RootScope;
 import norswap.sigh.scopes.Scope;
@@ -12,6 +13,7 @@ import norswap.utils.Util;
 import norswap.utils.exceptions.Exceptions;
 import norswap.utils.exceptions.NoStackException;
 import norswap.utils.visitors.ValuedVisitor;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -308,7 +310,15 @@ public final class Interpreter
     // ---------------------------------------------------------------------------------------------
 
     private Object closureExpression (ClosureExpressionNode node) {
-        return node;
+        Scope scope = reactor.get(node,"scope");
+        ScopeStorage storage = new ScopeStorage(scope,this.storage);
+        HashMap<String,ReferenceNode> refs = reactor.get(node,"references");
+        for (ReferenceNode ref : refs.values()) {
+            DeclarationNode decl = reactor.get(ref,"decl");
+            Scope sc = reactor.get(decl,"scope");
+            storage.set(scope,ref.name,this.storage.get(sc,ref.name));
+        }
+        return new Closure(node,storage);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -428,14 +438,15 @@ public final class Interpreter
         if (decl instanceof Constructor)
             return buildStruct(((Constructor) decl).declaration, args);
 
-        if (decl instanceof ClosureExpressionNode) {
+        if (decl instanceof Closure) {
             ScopeStorage oldStorage = storage;
-            Scope scope = reactor.get(decl, "scope");
-            storage = new ScopeStorage(scope, storage);
+            ClosureExpressionNode closure = ((Closure) decl).expression;
+            storage = ((Closure) decl).storage;
+            Scope scope2 = reactor.get(closure,"scope");
 
-            ClosureExpressionNode closure = (ClosureExpressionNode) decl;
+
             coIterate(args, closure.arguments,
-                (arg, param) -> storage.set(scope, param.name, arg));
+                (arg, param) -> storage.set(scope2, param.name, arg));
 
             try {
                 get(closure.block);

@@ -13,7 +13,9 @@ import norswap.uranium.Reactor;
 import norswap.uranium.Rule;
 import norswap.utils.visitors.ReflectiveFieldWalker;
 import norswap.utils.visitors.Walker;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -230,6 +232,9 @@ public final class SemanticAnalysis
                 SighNode maybeClosure = currentClosure();
                 if (maybeClosure!=null && maybeCtx.scope!=scope && !(maybeCtx.declaration instanceof SyntheticDeclarationNode)) {
                     ClosureExpressionNode closure = (ClosureExpressionNode) maybeClosure;
+                    HashMap<String,ReferenceNode> ref = R.get(closure,"references");
+                    ref.put(node.name,node);
+                    R.set(closure,"references",ref);
                     Scope cloScope = R.get(closure,"scope");
                     R.set(node, "decl",  maybeCtx.declaration);
                     R.set(node, "scope", cloScope);
@@ -506,16 +511,6 @@ public final class SemanticAnalysis
                             "incompatible argument provided for argument %d: expected %s but got %s",
                             i, paramType, argType),
                         node.arguments.get(i));
-                else if (argType instanceof ClosureType && paramType instanceof FunType) {
-                    ClosureExpressionNode closure = (ClosureExpressionNode) node.arguments.get(i);
-                    Attribute[] attributes = new Attribute[closure.arguments.size()];
-                    forEachIndexed(closure.arguments, (index,arg) -> arg.attr("type"));
-                    R.rule(attributes)
-                        .by(rr -> {
-                            forEachIndexed(closure.arguments, (index,arg)-> rr.set(index,((FunType) paramType).paramTypes[index]));
-                        });
-                }
-
             }
         });
     }
@@ -541,7 +536,7 @@ public final class SemanticAnalysis
     private void closureExpression (ClosureExpressionNode node) {
         scope = new Scope(node, scope);
         R.set(node, "scope", scope);
-
+        R.set(node,"references",new HashMap<String,ReferenceNode>());
         R.rule(node, "type")
             .using(node.attr("value"))
             .by (r -> {
