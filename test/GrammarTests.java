@@ -242,6 +242,29 @@ public class GrammarTests extends AutumnTestFixture {
                 new BlockNode(null,asList(new ExpressionStatementNode(null,new FunCallNode(null,new ReferenceNode(null,"print",false),
                     asList(new ReferenceNode(null,"y",false))))))))))));
 
+        successExpect("fun f(x : Int) : () -> Int {return {return x}}",new FunDeclarationNode(null,"f",asList(new ParameterNode(null,"x",
+            new SimpleTypeNode(null,"Int"))),new ClosureTypeNode(null,asList(),new SimpleTypeNode(null,"Int")),new BlockNode(null,
+            asList(new ReturnNode(null,new ClosureExpressionNode(null,asList(),new BlockNode(null,asList(new ReturnNode(null,
+                new ReferenceNode(null,"x",false))))))))));
+
+        successExpect("fun f() : () -> Bool {" +
+            "var x : Int = 3" +
+            "return {" +
+            "x = x+1" +
+            "return true}}",new FunDeclarationNode(null,"f",asList(),new ClosureTypeNode(null,asList(),new SimpleTypeNode(null,
+            "Bool")),new BlockNode(null,asList(new VarDeclarationNode(null,"x",new SimpleTypeNode(null,"Int"),
+            intlit(3),false),new ReturnNode(null,new ClosureExpressionNode(null,asList(),new BlockNode(null,
+            asList(new ExpressionStatementNode(null,new AssignmentNode(null,new ReferenceNode(null,"x",false),new BinaryExpressionNode(null,
+                new ReferenceNode(null,"x",false),ADD,intlit(1)))),new ReturnNode(null,new ReferenceNode(null,"true",false))))))))));
+
+        failure("var clo : (Int,Bool) -> Float = {(x,y) in {return 6.0}}");
+
+        failure("fun f() : (String,String) -> String {" +
+            "return { a,b in" +
+            "return a+b}" +
+            "}");
+
+
     }
 
     // ---------------------------------------------------------------------------------------------

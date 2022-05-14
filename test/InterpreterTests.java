@@ -527,6 +527,46 @@ public final class InterpreterTests extends TestFixture {
             "     return false })\n" +
             "return firstElemGreaterThan5",4L);
 
+        check("fun adder(x : Int) : (Int) -> Int {" +
+            "return { y in " +
+            "return y+x}}" +
+            "var adder5 : (Int) -> Int = adder(5)" +
+            "return adder5(3)",8L);
+
+        check("fun f(closure : (Int,Int) -> Bool, x : Int, y : Int) : Int { " +
+            "if closure(x,y) return 1 " +
+            "else return -1" +
+            "} " +
+            "var array : Int[] = [1,2,3,4,5,6] " +
+            "var result : Int = f({ (a,b) in " +
+            "return array[a]>b },3,6) " +
+            "return result",-1L);
+
+        check("fun add ( num : Int ) : () -> Int {\n" +
+            "var base : Int = 10\n" +
+            "return {\n" +
+            "base = base + num\n" +
+            "return base\n" +
+            "}\n" +
+            "}\n" +
+            "var adder1 : () -> Int = add(1)\n" +
+            "var res1 : Int = adder1 () \n" +
+            "var res2 : Int = adder1 () \n" +
+            "var adder2 : () -> Int = add(2)\n" +
+            "var res3 : Int = adder2 () " +
+            "return res3",12L);
+
+        check("fun add ( num : Int ) : () -> Int {\n" +
+            "var base : Int = 10\n" +
+            "return {\n" +
+            "base = base + num\n" +
+            "return base\n" +
+            "}\n" +
+            "}\n" +
+            "var adder1 : () -> Int = add(1)\n" +
+            "var res1 : Int = adder1 () \n" +
+            "var res2 : Int = adder1 () \n" +
+            "return res2",12L);
 
     }
 

@@ -455,6 +455,12 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
             "return x>3.6" +
             "})");
 
+        successInput("fun f(str : String) : (Int) -> String {" +
+            "var counter : Int = 0" +
+            "return {(num) in " +
+            "counter = counter + num " +
+            "return str+num}}");
+
         failureInputWith("fun add ( num : Int ) : (Int, Int) -> Int {"+
             "var base : Int = 42 "+
             "return { (x) in " +
