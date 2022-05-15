@@ -1,0 +1,12 @@
+var number : Int = 2
+switch(number){
+  case 1{
+    print("block 1")
+  }
+  case 2{
+    print("block 2")
+  }
+  default{
+    print("block 3")
+  }
+}
