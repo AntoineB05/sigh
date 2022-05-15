@@ -1,0 +1,11 @@
+struct Pair {
+    var a : Int
+    var b : Int
+}
+var isInt : Bool = (3 is Int)  // true
+var pair : Pair = $Pair(0,1)
+var isPair : Bool = (pair is Pair) // true
+var isInt2 : Bool = (pair is Int) // false
+print(""+isInt)
+print(""+isPair)
+print(""+isInt2)

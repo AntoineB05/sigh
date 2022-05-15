@@ -1,0 +1,9 @@
+var variableOptional: Int? = 4    // this is an optional that can contain a Int
+if var variableUnwrapped : Int = variableOptional {
+   print(""+variableUnwrapped)     // print 4
+}
+
+var variableOptional: Int?    // this is an optional that can contain a Int
+if var variableUnwrapped : Int = variableOptional {
+   print(""+variableUnwrapped)     // not executed
+}

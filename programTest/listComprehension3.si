@@ -1,0 +1,7 @@
+struct Pair {
+    var a : Int
+    var b : Int
+}
+var list : Pair[] = [$Pair(0,1), $Pair(1,2), $Pair(2,1)]
+var new_list : Int[] = [p.b + p.a for p:Pair in list if p.a <= 1]
+print(""+new_list) // [1,3]

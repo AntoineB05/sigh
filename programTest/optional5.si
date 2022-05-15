@@ -1,0 +1,2 @@
+var variableOptional: String?    // this is an optional that can contain a String
+print(variableOptional!)          // error : try to unwrap empty optional

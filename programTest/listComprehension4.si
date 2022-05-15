@@ -1,0 +1,2 @@
+var new_list : Int[] = [x-1 for x:Int in [1,2,3]]
+print(""+new_list) // [0,1,2]

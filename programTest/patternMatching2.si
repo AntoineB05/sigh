@@ -1,0 +1,16 @@
+struct Pair {
+    var a : Int
+    var b : Int
+}
+var pair : Pair = $Pair(0,1)
+switch(pair) {
+    case (0,0){
+        print("a is 0 and b is 0")
+    }
+    case (_,1){
+        print("b is 1")
+    }
+    default{
+        print("something else")
+    }
+}

@@ -36,7 +36,6 @@ public final class Test
         Walker<SighNode> walker = SemanticAnalysis.createWalker(reactor);
         walker.walk(tree);
         reactor.run();
-
         if (!reactor.errors().isEmpty()) {
             System.out.println(reactor.reportErrors(it ->
                 it.toString() + " (" + ((SighNode) it).span.startString(lineMap) + ")"));

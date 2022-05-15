@@ -1,0 +1,41 @@
+fun printCode (code:Int, callback : (Int) -> Void){
+    switch(code){
+        case 0{
+            print("code 0")
+        }
+        case 1{
+            print("code 1")
+        }
+        default{
+            print("incorrect code")
+        }
+    }
+    callback(code)
+}
+
+var code_to_print : Int?
+var code_list:Int[] = [0,1,1,3,0,1]
+
+fun init_code(code:Int){
+    code_to_print = code
+}
+var filtered_code_list : Int[]
+
+if var code_unwrap:Int = code_to_print{
+    var filtered_code_list : Int[] = [x for x:Int in code_list if x==code_unwrap]
+}else{
+    init_code(0)
+    var filtered_code_list : Int[] = [x for x:Int in code_list if x==code_to_print!]
+}
+
+print("length list : "+ filtered_code_list.length)
+
+printCode(code_to_print!,{ code in
+    print("callback: code "+ code)
+})
+
+//must print : length list : 2
+//             code 0
+//             callback: code 0
+
+

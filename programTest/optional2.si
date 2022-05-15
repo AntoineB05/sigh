@@ -1,0 +1,2 @@
+var notOptional: Int  // this is an integer and not an optional
+print(""+notOptional)    // Error variable not initialized

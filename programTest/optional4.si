@@ -1,0 +1,2 @@
+var variableOptional: String? = "5"    // this is an optional that can contain a String
+print(variableOptional!)          // print 5

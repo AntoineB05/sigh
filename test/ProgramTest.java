@@ -54,8 +54,10 @@ public final class ProgramTest {
     }
 
     @Test
-    public void patternMatching () {
+    public void testPatternMatching () {
         runAndCheckOutputProgram("patternMatching1.si","block 2\n");
+        runAndCheckOutputProgram("patternMatching2.si","b is 1\n");
+        runAndCheckOutputProgram("patternMatching3.si","true\ntrue\nfalse\n");
     }
 
     @Test
@@ -68,5 +70,33 @@ public final class ProgramTest {
     }
 
 
+    @Test
+    public void testOptional () {
+        runAndCheckOutputProgram("optional1.si","null\n");
+        try{
+            runAndCheckOutputProgram("optional2.si","");
+        }catch (Exception e){
+            assertEquals(e.getMessage(),"error : variable notOptional not initialize");
+        }
+        runAndCheckOutputProgram("optional3.si","4\n");
+        runAndCheckOutputProgram("optional4.si","5\n");
+        try{
+            runAndCheckOutputProgram("optional5.si","");
+        }catch (Exception e){
+            assertEquals(e.getMessage(),"error : force to unwrap empty optional");
+        }
+    }
 
+    @Test
+    public void testListComprehension () {
+        runAndCheckOutputProgram("listComprehension1.si","[4, 6]\n");
+        runAndCheckOutputProgram("listComprehension2.si","[0, 2, 4, 8, 12]\n");
+        runAndCheckOutputProgram("listComprehension3.si","[1, 3]\n");
+        runAndCheckOutputProgram("listComprehension4.si","[0, 1, 2]\n");
+    }
+
+    @Test
+    public void testAllFeatures () {
+        runAndCheckOutputProgram("allFeatures.si","length list : 2\ncode 0\ncallback: code 0\n");
+    }
 }

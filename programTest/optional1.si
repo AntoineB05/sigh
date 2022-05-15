@@ -1,0 +1,2 @@
+var optional: Int?    // this is an optional that can contain a Int
+print(""+optional)       // print null
