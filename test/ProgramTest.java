@@ -58,6 +58,15 @@ public final class ProgramTest {
         runAndCheckOutputProgram("patternMatching1.si","block 2\n");
     }
 
+    @Test
+    public void closures() {
+        runAndCheckOutputProgram("closures1.si","6\n");
+
+        runAndCheckOutputProgram("closures2.si","43\n44\n44\n46\n");
+
+        runAndCheckOutputProgram("closures3.si","0\n1\n0\n2\n0\n1\n0\n2\n10\n11\n10\n");
+    }
+
 
 
 }

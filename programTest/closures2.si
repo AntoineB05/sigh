@@ -1,0 +1,18 @@
+fun add(num : Int) : () -> Int {
+    var base : Int = 42
+    return {
+        base = base + num
+        return base
+        }
+}
+
+var adder1 : () -> Int = add(1)
+var result1 : Int = adder1 () // 43
+print(""+result1)
+var result2 : Int = adder1 () // 44
+print(""+result2)
+var adder2 : () -> Int = add(2)
+var result3 : Int = adder2 () // 44
+print(""+result3)
+var result4 : Int = adder2() // 46
+print(""+result4)

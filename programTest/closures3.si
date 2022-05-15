@@ -1,0 +1,29 @@
+var counter : Int = 0
+
+fun count() : () -> Int {
+    return  {
+    counter = counter + 1
+    return counter
+    }
+}
+
+print(""+counter) // 0
+var counting1 : () -> Int = count()
+var result1 : Int = counting1()
+print(""+result1) // 1
+print(""+counter) // 0
+var result2 : Int = counting1()
+print(""+result2) // 2
+print(""+counter) // 0
+var counting2 : () -> Int = count()
+var result3 : Int = counting2()
+print(""+result3) // 1
+print(""+counter) // 0
+counter = 10
+var result4 : Int = counting2()
+print(""+result4) // 2
+print(""+counter) // 10
+var counting3 : () -> Int = count()
+var result5 : Int = counting3()
+print(""+result5) // 11
+print(""+counter) // 10

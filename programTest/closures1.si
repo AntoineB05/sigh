@@ -1,0 +1,23 @@
+/*
+Return the first element of the array that satisfy the closure. If no element found return -1
+*/
+fun first(array : Int[], closure: (Int) -> Bool): Int {
+    var i : Int = 0
+    while i < array.length{
+        var elem : Int = array[i]
+        if closure(elem)
+            return elem
+        i = i + 1
+    }
+    return -1
+
+}
+
+var intArray: Int[] = [2,6,4,3]
+var firstElemGreaterThan5 : Int
+firstElemGreaterThan5 = first(intArray,{ x in
+    if x > 5
+        return true
+    else
+        return false}) // = 6
+print(""+firstElemGreaterThan5)
