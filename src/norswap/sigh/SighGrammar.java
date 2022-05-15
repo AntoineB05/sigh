@@ -69,6 +69,7 @@ public class SighGrammar extends Grammar
     public rule _default        = reserved("default");
     public rule _is             = reserved("is");
     public rule _in             = reserved("in");
+    public rule _for            = reserved("for");
 
     public rule number =
         seq(opt('-'), choice('0', digit.at_least(1)));
@@ -144,6 +145,11 @@ public class SighGrammar extends Grammar
         choice(this.expression,this.closure_block).sep(0, COMMA)
         .as_list(ExpressionNode.class));
 
+    public rule array_comprehension = lazy(() ->
+        seq(LSQUARE,this.expression,_for,this.local_var_decl,_in,this.expression,
+        seq(_if,this.expression).or_push_null(),RSQUARE)
+        .push($ -> new ArrayComprehensionNode($.span(),$.$[1],$.$[0],$.$[2],$.$[3])));
+
     public rule array =
         seq(LSQUARE, expressions, RSQUARE)
         .push($ -> new ArrayLiteralNode($.span(), $.$[0]));
@@ -161,6 +167,7 @@ public class SighGrammar extends Grammar
         integer,
         string,
         paren_expression,
+        array_comprehension,
         array);
 
     public rule case_expression = choice(
@@ -266,6 +273,10 @@ public class SighGrammar extends Grammar
 
     public rule type = lazy(() ->
         choice(optional_type,this.closure_type,seq(array_type)));
+
+    public rule local_var_decl =
+        seq(identifier,COLON,type)
+        .push($ -> new VarDeclarationNode($.span(),$.$[0],$.$[1],null,false));
 
     public rule statement = lazy(() -> choice(
         this.block,

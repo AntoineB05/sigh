@@ -160,6 +160,7 @@ public final class SemanticAnalysis
         walker.register(CaseNode.class,                 PRE_VISIT,  node -> {});
         walker.register(DefaultNode.class,              PRE_VISIT,  node -> {});
         walker.register(IfUnwrapNode.class,             PRE_VISIT,analysis::ifUnwrap);
+        walker.register(ArrayComprehensionNode.class,   PRE_VISIT, analysis::arrayComprehension);
         walker.registerFallback(POST_VISIT, node -> {});
 
         return walker;
@@ -1218,6 +1219,46 @@ public final class SemanticAnalysis
 
     }
 
+    private void arrayComprehension(ArrayComprehensionNode node){
+        scope = new Scope(node, scope);
+        R.set(node, "scope", scope);
+
+        R.rule(node,"type")
+        .using(node.expression.attr("type"))
+        .by(r -> {
+            Type expressionType = r.get(0);
+            ArrayType arrayComprehensionType = new ArrayType(expressionType);
+            r.set(0,arrayComprehensionType);
+        });
+
+        R.rule()
+        .using(node.list.attr("type"),node.localVar.attr("type"))
+        .by(r ->{
+            Type typeList = r.get(0);
+            Type localVarType = r.get(1);
+            if(!(typeList instanceof ArrayType)) {
+                r.error(format("Expression %s must be arrayType, actual : %s",node.list,typeList),node);
+            }else {
+                ArrayType arrayType = (ArrayType) typeList;
+                if (localVarType != arrayType.componentType) {
+                    r.error(format("Incompatible type for local variable %s, need %s but actual %s",
+                        node.localVar.name, arrayType.componentType, localVarType), node);
+                }
+            }
+            if (node.condition != null){
+                R.rule()
+                .using(node.condition.attr("type"))
+                .by(rr ->{
+                    Type conditionType = rr.get(0);
+                    if(conditionType != BoolType.INSTANCE){
+                        r.error(format("Incompatible type for condition expression, need Bool but actual %s",conditionType),node);
+                    }
+                });
+            }
+
+        });
+    }
+
 
     // ---------------------------------------------------------------------------------------------
 
@@ -1247,6 +1288,8 @@ public final class SemanticAnalysis
         }
         return null;
     }
+
+
 
     // ---------------------------------------------------------------------------------------------
 

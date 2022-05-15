@@ -90,6 +90,7 @@ public final class Interpreter
         visitor.register(ReturnNode.class,               this::returnStmt);
         visitor.register(SwitchNode.class,               this::switchStmt);
         visitor.register(IfUnwrapNode.class,             this::isUnwrap);
+        visitor.register(ArrayComprehensionNode.class,   this::arrayComprehension);
 
         visitor.registerFallback(node -> null);
     }
@@ -660,5 +661,23 @@ public final class Interpreter
         get(node.trueStatement);
 
         return null;
+    }
+
+    private Object[] arrayComprehension(ArrayComprehensionNode node){
+        Scope scope = reactor.get(node,"scope");
+        storage = new ScopeStorage(scope, storage);
+        Object[] list = get(node.list);
+        ArrayList<Object> newList = new ArrayList<>();
+        for (Object o : list){
+            assign(scope,node.localVar.name,o,reactor.get(node.localVar,"type"));
+            if(node.condition != null) {
+                if (get(node.condition)) {
+                    newList.add(get(node.expression));
+                }
+            }else {
+                newList.add(get(node.expression));
+            }
+        }
+        return newList.toArray();
     }
 }

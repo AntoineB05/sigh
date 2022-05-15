@@ -550,4 +550,20 @@ public final class SemanticAnalysisTests extends UraniumTestFixture
 
     }
 
+    @Test public void testListComprehension(){
+        successInput("var list:Int[] = [1,2,3]\n"+"var test:Int[] = [ x for x:Int in list ]");
+        successInput("var list:Int[] = [1,2,3]\n"+"var test:Int[] = [ x for x:Int in list if x > 3]");
+        successInput("var test:Int[] = [ x for x:Int in [1,2,3] if x > 3]");
+        failureInputWith("var test:Int[] = [ 1 for x:String in \"A\" ]",
+            "Expression StringLiteral(\"A\") must be arrayType, actual : String");
+        failureInputWith("var list:String[] = [\"a\",\"b\",\"c\"]\n"+"var test:Int[] = [ x for x:Int in list ]",
+            "Incompatible type for local variable x, need String but actual Int");
+        failureInputWith("var list:String[] = [\"a\",\"b\",\"c\"]\n"+"var test:String[] = [ 1 for x:String in list ]",
+            "incompatible initializer type provided for variable `test`: expected String[] but got Int[]");
+        failureInputWith("var list:String = \"a\"\n"+"var test:Int[] = [ 1 for x:String in list ]",
+            "Expression Reference(list) must be arrayType, actual : String");
+        failureInputWith("var list:Int[] = [1]\n"+"var test:Int[] = [ x for x:Int in list if x+1]",
+            "Incompatible type for condition expression, need Bool but actual Int");
+    }
+
 }

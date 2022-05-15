@@ -3,6 +3,7 @@ import norswap.sigh.SighGrammar;
 import norswap.sigh.ast.*;
 import org.testng.annotations.Test;
 
+import javax.lang.model.type.ArrayType;
 import java.util.ArrayList;
 
 import static java.util.Arrays.asList;
@@ -266,6 +267,28 @@ public class GrammarTests extends AutumnTestFixture {
 
 
     }
+
+    @Test public void testListComprehension(){
+        rule = grammar.statement;
+
+        successExpect("var test:Int[] = [ x for x:Int in list ]", new VarDeclarationNode(null, "test", new ArrayTypeNode(null,new SimpleTypeNode(null, "Int")),
+            new ArrayComprehensionNode(null, new VarDeclarationNode(null,"x",new SimpleTypeNode(null,"Int"),null,false),
+                new ReferenceNode(null,"x",false),new ReferenceNode(null,"list",false),null),false));
+
+        successExpect("var test:Int[] = [ x for x:Int in 1 ]", new VarDeclarationNode(null, "test", new ArrayTypeNode(null,new SimpleTypeNode(null, "Int")),
+            new ArrayComprehensionNode(null, new VarDeclarationNode(null,"x",new SimpleTypeNode(null,"Int"),null,false),
+                new ReferenceNode(null,"x",false),new IntLiteralNode(null,1),null),false));
+
+
+        successExpect("var test:Int[] = [ x for x:Int in list if x > 3]", new VarDeclarationNode(null, "test", new ArrayTypeNode(null,new SimpleTypeNode(null, "Int")),
+            new ArrayComprehensionNode(null, new VarDeclarationNode(null,"x",new SimpleTypeNode(null,"Int"),null,false),
+                new ReferenceNode(null,"x",false),new ReferenceNode(null,"list",false),
+                new BinaryExpressionNode(null,new ReferenceNode(null,"x",false), GREATER,new IntLiteralNode(null,3))),false));
+
+        failure("var test:Int[] = [ x for x in list if x > 3]");
+    }
+
+
 
     // ---------------------------------------------------------------------------------------------
 }

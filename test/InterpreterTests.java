@@ -570,6 +570,33 @@ public final class InterpreterTests extends TestFixture {
 
     }
 
+    @Test public void testListComprehension(){
+        check("var list:Int[] = [1,2,3]\n" +
+            "var test:Int[] = [ x+1 for x:Int in list]"+
+            "print(\"\"+test)",null,"[2, 3, 4]\n");
+
+        check("var list:Int[] = [1,2,3]\n" +
+            "var test:Int[] = [ x*2 for x:Int in list if x >= 2 ]"+
+            "print(\"\"+test)",null,"[4, 6]\n");
+
+        check("var list:String[] = [\"a\"]\n" +
+            "var test:Int[] = [ 1 for x:String in list]"+
+            "print(\"\"+test)",null,"[1]\n");
+
+        check("var test:Int[] = [ x for x:Int in [5,7,9] if x >= 6 ]"+
+            "print(\"\"+test)",null,"[7, 9]\n");
+
+        check("struct Pair {\n"+
+            "var a: Int\n"+
+            "var b: Int}\n"+
+            "var list:Pair[] = [$Pair(0,1),$Pair(2,3),$Pair(4,5)]\n" +
+            "var test:Int[] = [ x.a+x.b for x:Pair in list if x.a <=2 && x.b >= 3]\n"+
+            "print(\"\"+test)",null,"[5]\n");
+
+
+
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     // NOTE(norswap): Not incredibly complete, but should cover the basics.
