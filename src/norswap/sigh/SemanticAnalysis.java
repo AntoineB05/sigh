@@ -1025,7 +1025,6 @@ public final class SemanticAnalysis
     }
 
     private void parameterClosure (ParameterClosureNode node) {
-        //R.set(node, "scope", scope);
         scope.declare(node.name,node);
     }
 
@@ -1223,15 +1222,15 @@ public final class SemanticAnalysis
         scope = new Scope(node, scope);
         R.set(node, "scope", scope);
 
-        R.rule(node,"type")
+        R.rule(node,"type") // set the type of the list comprehension with the type of the first expression
         .using(node.expression.attr("type"))
         .by(r -> {
             Type expressionType = r.get(0);
             ArrayType arrayComprehensionType = new ArrayType(expressionType);
             r.set(0,arrayComprehensionType);
         });
-
-        R.rule()
+                // rule to check if the type of the list is ArrayType
+        R.rule() // rule to check if the type of localVar and the componentType of the list match
         .using(node.list.attr("type"),node.localVar.attr("type"))
         .by(r ->{
             Type typeList = r.get(0);
@@ -1246,7 +1245,7 @@ public final class SemanticAnalysis
                 }
             }
             if (node.condition != null){
-                R.rule()
+                R.rule() // rule to check if the condition is BoolType
                 .using(node.condition.attr("type"))
                 .by(rr ->{
                     Type conditionType = rr.get(0);

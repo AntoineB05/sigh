@@ -11,7 +11,7 @@ public class ClosureExpressionNode extends ExpressionNode{
     public final BlockNode block;
     public final List<ParameterClosureNode> arguments;
 
-
+    @SuppressWarnings("unchecked")
     public ClosureExpressionNode (Span span, Object arguments, Object block) {
         super(span);
         this.arguments = arguments==null ? new ArrayList() :  Util.cast(arguments, List.class);

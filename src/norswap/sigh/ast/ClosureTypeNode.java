@@ -8,7 +8,7 @@ public class ClosureTypeNode extends TypeNode {
 
     public final TypeNode returnType;
     public final List<TypeNode> paramTypes;
-
+    @SuppressWarnings("unchecked")
     public ClosureTypeNode (Span span, Object paramTypes, Object returnType) {
         super(span);
         this.returnType = Util.cast(returnType, TypeNode.class);

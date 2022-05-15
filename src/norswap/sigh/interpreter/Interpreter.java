@@ -670,7 +670,7 @@ public final class Interpreter
         ArrayList<Object> newList = new ArrayList<>();
         for (Object o : list){
             assign(scope,node.localVar.name,o,reactor.get(node.localVar,"type"));
-            if(node.condition != null) {
+            if(node.condition != null) { // there is an if condition
                 if (get(node.condition)) {
                     newList.add(get(node.expression));
                 }
